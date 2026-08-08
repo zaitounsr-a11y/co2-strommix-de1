@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CO₂-Intensität des deutschen Strommixes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
+<style>
+:root{
+  --paper:#FAFAF7;  --ink:#16181D;  --muted:#6B7078;  --rule:#DCDCD4;
+  --clean:#2E7D5B;  --mid:#C9A227;  --dirty:#8A4B2A;
+  --braunkohle:#8B5A2B; --steinkohle:#4A4A4A; --erdgas:#C0553B;
+  --sonstkonv:#9A9A93; --biomasse:#5C8A3A;  --wasser:#2C6E8F;
+  --windoff:#2AA5C7;   --windon:#5FC4E0;    --pv:#F2C230; --sonstee:#8FB96B;
+  --speicher:#7E6BA8;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:var(--paper); color:var(--ink);
+  font:400 15px/1.55 'IBM Plex Sans',system-ui,sans-serif;
+  padding:2.5rem 1.5rem 4rem;
+}
+.wrap{max-width:1180px;margin:0 auto}
+
+/* ---- Kopf ---- */
+header{border-bottom:2px solid var(--ink);padding-bottom:1rem;margin-bottom:2rem}
+.eyebrow{
+  font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--muted);margin-bottom:.4rem;
+}
+h1{font-size:1.65rem;font-weight:600;letter-spacing:-.015em}
+.sub{color:var(--muted);font-size:.9rem;margin-top:.25rem}
+
+/* ---- Leitwert + Skala (Signature) ---- */
+.now{display:grid;grid-template-columns:minmax(220px,auto) 1fr;gap:2.5rem;align-items:end;margin-bottom:2.5rem}
+.big{font-family:'IBM Plex Mono',monospace;font-size:4.2rem;font-weight:500;line-height:.95;letter-spacing:-.03em}
+.big .unit{font-size:.95rem;font-weight:400;color:var(--muted);letter-spacing:0;display:block;margin-top:.5rem}
+.scale{position:relative;padding-bottom:2.2rem}
+.band{height:14px;border-radius:2px;
+  background:linear-gradient(90deg,var(--clean) 0%,var(--mid) 50%,var(--dirty) 100%)}
+.needle{position:absolute;top:-6px;width:2px;height:26px;background:var(--ink);transition:left .6s cubic-bezier(.4,0,.2,1)}
+.needle::after{content:'';position:absolute;top:-5px;left:-4px;width:10px;height:10px;
+  background:var(--ink);transform:rotate(45deg)}
+.ticks{display:flex;justify-content:space-between;margin-top:.5rem;
+  font-family:'IBM Plex Mono',monospace;font-size:.72rem;color:var(--muted)}
+.scale-cap{font-size:.78rem;color:var(--muted);margin-top:.35rem}
+
+/* ---- Kennzahlen ---- */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+  gap:1px;background:var(--rule);border:1px solid var(--rule);margin-bottom:2.5rem}
+.stat{background:var(--paper);padding:.9rem 1rem}
+.stat dt{font-family:'IBM Plex Mono',monospace;font-size:.68rem;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--muted);margin-bottom:.35rem}
+.stat dd{font-family:'IBM Plex Mono',monospace;font-size:1.35rem;font-weight:500}
+.stat dd small{font-size:.7rem;color:var(--muted);font-weight:400}
+
+/* ---- Diagramme ---- */
+section{margin-bottom:2.5rem}
+h2{font-size:.8rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--muted);padding-bottom:.5rem;border-bottom:1px solid var(--rule);margin-bottom:1rem}
+.chart{height:300px;position:relative}
+footer{border-top:1px solid var(--rule);padding-top:1rem;font-size:.78rem;color:var(--muted)}
+footer code{font-family:'IBM Plex Mono',monospace;font-size:.95em}
+.err{background:#FBEAE5;border-left:3px solid var(--erdgas);padding:.85rem 1rem;
+  font-size:.88rem;margin-bottom:1.5rem;display:none}
+.loading{color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:.85rem}
+@media (max-width:640px){.now{grid-template-columns:1fr;gap:1.5rem}.big{font-size:3rem}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">Gebotszone DE-LU · stündlich · eigene Berechnung</div>
+    <h1>CO₂-Intensität des deutschen Strommixes</h1>
+    <p class="sub">Lebenszyklusbetrachtung nach der Methodik des Green Grid Compass,
+       berechnet aus ENTSO-E-Erzeugungsdaten. HAW Hamburg, Studienprojekt.</p>
+  </header>
+
+  <div class="err" id="err"></div>
+
+  <div class="now">
+    <div>
+      <div class="big" id="bigVal">—<span class="unit">g CO₂eq / kWh · Lebenszyklus</span></div>
+    </div>
+    <div class="scale">
+      <div class="band"><div class="needle" id="needle" style="left:0"></div></div>
+      <div class="ticks"><span>0</span><span>150</span><span>300</span><span>450</span><span>600</span></div>
+      <div class="scale-cap">Einordnung im Bereich der letzten Tage</div>
+    </div>
+  </div>
+
+  <dl class="stats">
+    <div class="stat"><dt>Stand</dt><dd id="sTime">—</dd></div>
+    <div class="stat"><dt>Nur Verbrennung</dt><dd id="sS2">—<small> g/kWh</small></dd></div>
+    <div class="stat"><dt>Vorkette + Bau</dt><dd id="sS3">—<small> g/kWh</small></dd></div>
+    <div class="stat"><dt>Erneuerbar</dt><dd id="sEE">—<small> %</small></dd></div>
+    <div class="stat"><dt>Erzeugung</dt><dd id="sGen">—<small> MWh/h</small></dd></div>
+    <div class="stat"><dt>Spanne Zeitraum</dt><dd id="sRange">—</dd></div>
+  </dl>
+
+  <section>
+    <h2>Verlauf der Emissionsintensität</h2>
+    <div class="chart"><canvas id="cInt"></canvas></div>
+  </section>
+
+  <section>
+    <h2>Stromerzeugung nach Energieträger</h2>
+    <div class="chart"><canvas id="cMix"></canvas></div>
+  </section>
+
+  <footer>
+    Erzeugungsdaten: ENTSO-E Transparency Platform, <code>Actual Generation per Production Type</code>.
+    Emissionsfaktoren: EU-JRC (fossil, über den Wirkungsgrad auf Stromerzeugung umgerechnet),
+    IPCC AR5 Annex III (erneuerbar), Biomasse nach GGC-Konvention ohne biogenes CO₂.
+    Netzverluste 4,46 %. Ohne Import/Export, ohne Skalierung auf Eurostat, ohne KWK-Allokation.
+    Datenabruf mit 3 Stunden Verzögerung. <span id="fSpeicher"></span>
+  </footer>
+</div>
+
+<script>
+const CARRIERS = [
+  ['Braunkohle','--braunkohle'],['Steinkohle','--steinkohle'],['Erdgas','--erdgas'],
+  ['Sonstige Konventionelle','--sonstkonv'],['Pumpspeicher','--speicher'],
+  ['Biomasse','--biomasse'],['Wasserkraft','--wasser'],
+  ['Wind Offshore','--windoff'],['Wind Onshore','--windon'],
+  ['Photovoltaik','--pv'],['Sonstige Erneuerbare','--sonstee'],
+];
+const ERNEUERBAR = new Set(['Biomasse','Wasserkraft','Wind Offshore','Wind Onshore',
+                            'Photovoltaik','Sonstige Erneuerbare']);
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const fmtTime = t => new Date(t).toLocaleString('de-DE',
+  {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',timeZone:'UTC'}) + ' UTC';
+
+const baseScales = {
+  x:{type:'time',time:{unit:'hour',displayFormats:{hour:'HH:mm'}},
+     grid:{display:false},
+     ticks:{font:{family:"'IBM Plex Mono'",size:10},color:css('--muted'),maxRotation:0}},
+};
+const legendCfg = {position:'bottom',labels:{boxWidth:10,boxHeight:10,padding:12,
+  font:{family:"'IBM Plex Sans'",size:11},color:css('--muted')}};
+
+let chartInt, chartMix;
+
+async function load(){
+  const errBox = document.getElementById('err');
+  try{
+    const r = await fetch('/api/intensity?hours=72');
+    const d = await r.json();
+    if(!r.ok) throw new Error(d.error || `HTTP ${r.status}`);
+    errBox.style.display='none';
+    render(d);
+  }catch(e){
+    errBox.textContent = 'Daten konnten nicht geladen werden: ' + e.message
+      + '  —  Läuft der Proxy (npm start) und steht der Token in .env?';
+    errBox.style.display='block';
+  }
+}
+
+function render(d){
+  const hours = d.hours.filter(h => h.lc !== null);
+  if(!hours.length) return;
+  const last = hours[hours.length-1];
+  const vals = hours.map(h => h.lc);
+  const min = Math.min(...vals), max = Math.max(...vals);
+
+  // Leitwert + Nadel
+  document.getElementById('bigVal').firstChild.nodeValue = Math.round(last.lc);
+  document.getElementById('needle').style.left =
+    Math.max(0, Math.min(100, last.lc / 600 * 100)) + '%';
+
+  // Kennzahlen
+  const ee = Object.entries(last.generation)
+    .filter(([k]) => ERNEUERBAR.has(k)).reduce((s,[,v]) => s+v, 0);
+  const set = (id,v) => document.getElementById(id).firstChild.nodeValue = v;
+  set('sTime',  fmtTime(last.timestamp));
+  set('sS2',    Math.round(last.scope2));
+  set('sS3',    Math.round(last.lc - last.scope2));
+  set('sEE',    Math.round(ee / last.totalMWh * 100));
+  set('sGen',   last.totalMWh.toLocaleString('de-DE'));
+  set('sRange', `${Math.round(min)}–${Math.round(max)}`);
+  document.getElementById('fSpeicher').textContent =
+    `Pumpspeicher-Entladung mit ${d.speicherFaktor} g/kWh bewertet (aus dem Zeitraum abgeleitet).`;
+
+  const t = hours.map(h => h.timestamp);
+
+  chartInt?.destroy();
+  chartInt = new Chart(document.getElementById('cInt'), {
+    type:'line',
+    data:{labels:t, datasets:[
+      {label:'Lebenszyklus', data:vals, borderColor:css('--ink'),
+       borderWidth:2, pointRadius:0, tension:.25, fill:false},
+      {label:'nur Verbrennung (Scope 2)', data:hours.map(h=>h.scope2),
+       borderColor:css('--muted'), borderWidth:1, borderDash:[4,3],
+       pointRadius:0, tension:.25, fill:false},
+    ]},
+    options:{maintainAspectRatio:false, interaction:{mode:'index',intersect:false},
+      plugins:{legend:legendCfg,
+        tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${Math.round(c.parsed.y)} g/kWh`}}},
+      scales:{...baseScales, y:{title:{display:true,text:'g CO₂eq / kWh',
+          font:{family:"'IBM Plex Sans'",size:11},color:css('--muted')},
+        grid:{color:css('--rule')},
+        ticks:{font:{family:"'IBM Plex Mono'",size:10},color:css('--muted')}}}}
+  });
+
+  chartMix?.destroy();
+  chartMix = new Chart(document.getElementById('cMix'), {
+    type:'line',
+    data:{labels:t, datasets:CARRIERS.map(([name,v])=>({
+      label:name, data:hours.map(h=>h.generation[name] ?? 0),
+      backgroundColor:css(v), borderColor:css(v), borderWidth:0,
+      pointRadius:0, fill:true, tension:.2}))},
+    options:{maintainAspectRatio:false, interaction:{mode:'index',intersect:false},
+      plugins:{legend:legendCfg,
+        tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${Math.round(c.parsed.y).toLocaleString('de-DE')} MWh`}}},
+      scales:{...baseScales, y:{stacked:true,
+        title:{display:true,text:'MWh pro Stunde',
+          font:{family:"'IBM Plex Sans'",size:11},color:css('--muted')},
+        grid:{color:css('--rule')},
+        ticks:{font:{family:"'IBM Plex Mono'",size:10},color:css('--muted')}}}}
+  });
+}
+
+load();
+setInterval(load, 15*60*1000);   // alle 15 Minuten aktualisieren
+</script>
+</body>
+</html>

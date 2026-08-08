@@ -19,9 +19,11 @@ import express from 'express';
 import cors from 'cors';
 import 'dotenv/config';
 import { XMLParser } from 'fast-xml-parser';
+import { calculateIntensityWithStorage } from './emissionFactors.js';
 
 const app = express();
 app.use(cors());
+app.use(express.static('public'));   // liefert public/index.html aus
 const PORT = 3000;
 
 const ENTSOE_URL = 'https://web-api.tp.entsoe.eu/api';
@@ -171,15 +173,10 @@ function parseGeneration(xml) {
 // Route: Stromerzeugung aus ENTSO-E
 //   GET /api/generation?start=2026-07-13T00:00:00Z&end=2026-07-20T00:00:00Z
 // ---------------------------------------------------------------------------
-app.get('/api/generation', async (req, res) => {
-  const { start, end, zone = DE_LU } = req.query;
-  if (!start || !end) {
-    return res.status(400).json({ error: 'start und end sind erforderlich (ISO 8601)' });
-  }
-
+async function getGeneration(start, end, zone = DE_LU) {
   const key = `gen:${zone}:${start}:${end}`;
   const cached = fromCache(key);
-  if (cached) return res.json(cached);
+  if (cached) return cached;
 
   const params = new URLSearchParams({
     documentType: 'A75',
@@ -189,21 +186,65 @@ app.get('/api/generation', async (req, res) => {
     periodEnd:    toEntsoeDate(end),
   });
 
+  // Token im Header, NICHT im Query-String (Query-Strings landen in Logs)
+  const r = await throttled(`${ENTSOE_URL}?${params}`, {
+    headers: { SECURITY_TOKEN: process.env.ENTSOE_TOKEN },
+  });
+
+  if (r.status === 401) throw new Error('Token ungültig oder fehlend (401)');
+  if (r.status === 429) throw new Error('Rate Limit erreicht — 10 Minuten warten');
+  if (!r.ok)            throw new Error(`ENTSO-E antwortete mit ${r.status}`);
+
+  const data = parseGeneration(await r.text());
+  toCache(key, data);
+  return data;
+}
+
+app.get('/api/generation', async (req, res) => {
+  const { start, end, zone = DE_LU } = req.query;
+  if (!start || !end) {
+    return res.status(400).json({ error: 'start und end sind erforderlich (ISO 8601)' });
+  }
   try {
-    // Token im Header, NICHT im Query-String (Query-Strings landen in Logs)
-    const r = await throttled(`${ENTSOE_URL}?${params}`, {
-      headers: { SECURITY_TOKEN: process.env.ENTSOE_TOKEN },
-    });
-
-    if (r.status === 401) throw new Error('Token ungültig oder fehlend (401)');
-    if (r.status === 429) throw new Error('Rate Limit erreicht — 10 Minuten warten');
-    if (!r.ok)            throw new Error(`ENTSO-E antwortete mit ${r.status}`);
-
-    const data = parseGeneration(await r.text());
-    toCache(key, data);
-    res.json(data);
+    res.json(await getGeneration(start, end, zone));
   } catch (err) {
     console.error('[generation]', err.message);
+    res.status(502).json({ error: err.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Route: unsere EIGENE CO2-Intensitaet (Erzeugung + Faktoren, serverseitig)
+//   GET /api/intensity?hours=48
+// ---------------------------------------------------------------------------
+app.get('/api/intensity', async (req, res) => {
+  const hoursBack = Math.min(Number(req.query.hours) || 48, 168);
+
+  // ENTSO-E liefert mit Verzoegerung; GGC wartet bewusst 3 h.
+  const end   = new Date(Date.now() - 3 * 3600e3);
+  end.setUTCMinutes(0, 0, 0);
+  const start = new Date(end.getTime() - hoursBack * 3600e3);
+
+  try {
+    const gen = await getGeneration(start.toISOString(), end.toISOString());
+    if (!gen.length) return res.status(502).json({ error: 'Keine Erzeugungsdaten erhalten' });
+
+    const s2 = calculateIntensityWithStorage(gen, 'scope2');
+    const lc = calculateIntensityWithStorage(gen, 'lc');
+
+    res.json({
+      updated: new Date().toISOString(),
+      speicherFaktor: Math.round(lc.speicherFaktor),
+      hours: gen.map((h, i) => ({
+        timestamp:  h.timestamp,
+        generation: h.values,
+        totalMWh:   Math.round(lc.rows[i].totalMWh),
+        scope2:     s2.rows[i].intensity,
+        lc:         lc.rows[i].intensity,
+      })),
+    });
+  } catch (err) {
+    console.error('[intensity]', err.message);
     res.status(502).json({ error: err.message });
   }
 });
