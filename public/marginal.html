@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Marginaler Emissionsfaktor — DE-LU</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+:root{--paper:#FAFAF7;--ink:#16181D;--muted:#6B7078;--rule:#DCDCD4;
+ --aef:#2C6E8F;--mef:#B3452B;--grid:#EDEDE6;
+ --braunkohle:#8B5A2B;--steinkohle:#4A4A4A;--erdgas:#C0553B;
+ --sonstkonv:#9A9A93;--biomasse:#5C8A3A;--speicher:#7E6BA8;}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--paper);color:var(--ink);
+ font:400 15px/1.55 'IBM Plex Sans',system-ui,sans-serif;padding:2.5rem 1.5rem 4rem}
+.wrap{max-width:1100px;margin:0 auto}
+header{border-bottom:2px solid var(--ink);padding-bottom:1rem;margin-bottom:2rem}
+.eyebrow{font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.14em;
+ text-transform:uppercase;color:var(--muted);margin-bottom:.4rem}
+h1{font-size:1.65rem;font-weight:600;letter-spacing:-.015em}
+.sub{color:var(--muted);font-size:.9rem;margin-top:.25rem;max-width:62ch}
+.ctrl{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin-bottom:2rem}
+.ctrl label{font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.1em;
+ text-transform:uppercase;color:var(--muted)}
+.ctrl input,.ctrl button{font:400 .88rem 'IBM Plex Mono',monospace;padding:.45rem .7rem;
+ border:1px solid var(--rule);background:#fff;color:var(--ink);border-radius:2px}
+.ctrl button{background:var(--ink);color:var(--paper);border-color:var(--ink);cursor:pointer}
+.ctrl button:hover{opacity:.85}
+.ctrl button:focus-visible,.ctrl input:focus-visible{outline:2px solid var(--mef);outline-offset:2px}
+
+/* Leitzahl */
+.headline{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--rule);
+ border:1px solid var(--rule);margin-bottom:.6rem}
+.hcell{background:var(--paper);padding:1.1rem 1.2rem}
+.hcell dt{font-family:'IBM Plex Mono',monospace;font-size:.68rem;letter-spacing:.1em;
+ text-transform:uppercase;color:var(--muted);margin-bottom:.3rem}
+.hcell dd{font-family:'IBM Plex Mono',monospace;font-size:2.4rem;font-weight:500;line-height:1}
+.hcell dd small{font-size:.7rem;color:var(--muted);font-weight:400;display:block;margin-top:.4rem}
+.hcell.mef dd{color:var(--mef)} .hcell.aef dd{color:var(--aef)}
+.verdict{font-family:'IBM Plex Mono',monospace;font-size:.95rem;padding:.8rem 1.2rem;
+ border:1px solid var(--rule);border-left:3px solid var(--mef);margin-bottom:2.5rem}
+section{margin-bottom:2.5rem}
+h2{font-size:.8rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+ color:var(--muted);padding-bottom:.5rem;border-bottom:1px solid var(--rule);margin-bottom:.6rem}
+.note{font-size:.82rem;color:var(--muted);margin-bottom:1rem;max-width:70ch}
+.chart{height:330px;position:relative}
+.chart.short{height:230px}
+footer{border-top:1px solid var(--rule);padding-top:1rem;font-size:.78rem;color:var(--muted)}
+.err{background:#FBEAE5;border-left:3px solid var(--mef);padding:.85rem 1rem;
+ font-size:.88rem;margin-bottom:1.5rem;display:none}
+@media(max-width:640px){.headline{grid-template-columns:1fr}.hcell dd{font-size:1.9rem}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">Task 2 · Consequential LCA · Gebotszone DE-LU</div>
+  <h1>Was verursacht die nächste Kilowattstunde?</h1>
+  <p class="sub">Der attributionale Faktor (AEF) verteilt alle Emissionen auf allen Strom.
+     Der marginale Faktor (MEF) beantwortet eine andere Frage: welches Kraftwerk reagiert,
+     wenn der Verbrauch um eine kWh steigt — und was emittiert dieses.</p>
+</header>
+
+<div class="err" id="err"></div>
+
+<div class="ctrl">
+  <label for="von">Von</label><input type="date" id="von" value="2024-06-10">
+  <label for="bis">Bis</label><input type="date" id="bis" value="2024-06-17">
+  <button id="go">Berechnen</button>
+</div>
+
+<dl class="headline">
+  <div class="hcell aef"><dt>AEF — Durchschnitt</dt><dd id="vAef">—<small>g CO₂eq/kWh · attributional, Task 1</small></dd></div>
+  <div class="hcell mef"><dt>MEF — Grenzwert</dt><dd id="vMef">—<small>g CO₂eq/kWh · Regression auf Residuallast</small></dd></div>
+</dl>
+<div class="verdict" id="verdict">—</div>
+
+<section>
+  <h2>Warum die Bezugsgröße alles entscheidet</h2>
+  <p class="note">Jeder Punkt ist ein Stundenübergang. Links gegen die Gesamterzeugung —
+     kein Zusammenhang, weil Erzeugung vor allem mit der Sonne steigt und PV emissionsfrei ist.
+     Rechts gegen die Residuallast, also nach Abzug von Wind und PV: die Steigung dieser
+     Geraden <em>ist</em> der marginale Emissionsfaktor.</p>
+  <div class="chart"><canvas id="cScatter"></canvas></div>
+</section>
+
+<section>
+  <h2>Welches Kraftwerk reagiert tatsächlich</h2>
+  <p class="note">Anteil der Stunden, in denen sich der jeweilige regelbare Erzeuger am
+     stärksten in Richtung der Residuallastveränderung bewegt hat. Pumpspeicher ist
+     ausgenommen: er erzeugt keine Energie, sondern verschiebt sie.</p>
+  <div class="chart short"><canvas id="cFreq"></canvas></div>
+</section>
+
+<section>
+  <h2>MEF nach Netzzustand</h2>
+  <p class="note">Getrennte Regression für Stunden über und unter der mittleren Residuallast.</p>
+  <div class="chart short"><canvas id="cSplit"></canvas></div>
+</section>
+
+<footer>
+  Methode A nach Hawkes (2010), <em>Estimating marginal CO₂ emissions rates for national
+  electricity systems</em>, Energy Policy 38(10), 5977–5987. Methode B entspricht dem
+  „marginal power plant approach“ nach Fleschutz et al. (2021), Applied Energy 295, 117040.
+  Erzeugungsdaten: ENTSO-E Transparency Platform. Last durch Erzeugung angenähert,
+  Import/Export nicht berücksichtigt.
+</footer>
+</div>
+
+<script>
+// Faktoren spiegeln emissionFactors.js (Lebenszyklus)
+const F = {'Braunkohle':1097,'Steinkohle':968,'Erdgas':492,'Sonstige Konventionelle':1384,
+  'Biomasse':53,'Wasserkraft':24,'Pumpspeicher':430,'Wind Onshore':11,'Wind Offshore':12,
+  'Photovoltaik':48,'Sonstige Erneuerbare':48,'Kernenergie':12};
+const VRE = ['Wind Onshore','Wind Offshore','Photovoltaik'];
+const DISP = ['Braunkohle','Steinkohle','Erdgas','Sonstige Konventionelle','Biomasse'];
+const COL = {'Braunkohle':'--braunkohle','Steinkohle':'--steinkohle','Erdgas':'--erdgas',
+  'Sonstige Konventionelle':'--sonstkonv','Biomasse':'--biomasse'};
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+function regress(p){
+  const n=p.length, mx=p.reduce((s,q)=>s+q[0],0)/n, my=p.reduce((s,q)=>s+q[1],0)/n;
+  const sxy=p.reduce((s,q)=>s+(q[0]-mx)*(q[1]-my),0), sxx=p.reduce((s,q)=>s+(q[0]-mx)**2,0);
+  const b=sxy/sxx, a=my-b*mx;
+  const st=p.reduce((s,q)=>s+(q[1]-my)**2,0), sr=p.reduce((s,q)=>s+(q[1]-(b*q[0]+a))**2,0);
+  return {slope:b, inter:a, r2:1-sr/st, n};
+}
+const line = (r,xs) => xs.map(x=>({x, y:r.slope*x+r.inter}));
+let charts=[];
+
+async function run(){
+  const von=document.getElementById('von').value, bis=document.getElementById('bis').value;
+  const errBox=document.getElementById('err');
+  try{
+    const r=await fetch(`/api/generation?start=${von}T00:00:00Z&end=${bis}T00:00:00Z`);
+    const hours=await r.json();
+    if(!r.ok) throw new Error(hours.error||`HTTP ${r.status}`);
+    if(!hours.length) throw new Error('Keine Daten für diesen Zeitraum.');
+    errBox.style.display='none';
+    draw(hours);
+  }catch(e){
+    errBox.textContent='Fehler: '+e.message+' — Läuft der Proxy (npm start)?';
+    errBox.style.display='block';
+  }
+}
+
+function draw(hours){
+  charts.forEach(c=>c.destroy()); charts=[];
+
+  const S = hours.map(h=>{
+    const tot=Object.values(h.values).reduce((s,v)=>s+v,0);
+    const vre=VRE.reduce((s,k)=>s+(h.values[k]??0),0);
+    let e=0; for(const [k,v] of Object.entries(h.values)) e+=(F[k]??0)*v/1000;
+    return {v:h.values, tot, res:tot-vre, e, int:e*1000/tot};
+  });
+
+  const dTot=[], dRes=[];
+  for(let i=1;i<S.length;i++){
+    dTot.push([S[i].tot-S[i-1].tot, S[i].e-S[i-1].e]);
+    dRes.push([S[i].res-S[i-1].res, S[i].e-S[i-1].e]);
+  }
+  const rT=regress(dTot), rR=regress(dRes);
+  const aef=S.reduce((s,h)=>s+h.int,0)/S.length;
+  const mef=rR.slope*1000;
+
+  document.getElementById('vAef').firstChild.nodeValue=Math.round(aef);
+  document.getElementById('vMef').firstChild.nodeValue=Math.round(mef);
+  document.getElementById('verdict').textContent =
+    `Die nächste kWh ist ${(mef/aef).toFixed(2)}× so emissionsintensiv wie die durchschnittliche. `+
+    `(R² = ${rR.r2.toFixed(3)}, n = ${rR.n} Stundenübergänge)`;
+
+  // --- Streudiagramm ---
+  const xsT=[Math.min(...dTot.map(p=>p[0])),Math.max(...dTot.map(p=>p[0]))];
+  const xsR=[Math.min(...dRes.map(p=>p[0])),Math.max(...dRes.map(p=>p[0]))];
+  charts.push(new Chart(document.getElementById('cScatter'),{
+    type:'scatter',
+    data:{datasets:[
+      {label:`Gesamterzeugung  (R² ${rT.r2.toFixed(3)})`, data:dTot.map(p=>({x:p[0],y:p[1]})),
+       backgroundColor:css('--muted')+'55', pointRadius:3},
+      {label:'', data:line(rT,xsT), type:'line', borderColor:css('--muted'),
+       borderWidth:1.5, borderDash:[5,4], pointRadius:0, fill:false},
+      {label:`Residuallast  (R² ${rR.r2.toFixed(3)})`, data:dRes.map(p=>({x:p[0],y:p[1]})),
+       backgroundColor:css('--mef')+'66', pointRadius:3},
+      {label:'', data:line(rR,xsR), type:'line', borderColor:css('--mef'),
+       borderWidth:2, pointRadius:0, fill:false},
+    ]},
+    options:{maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{filter:i=>i.text!=='',boxWidth:10,
+        font:{family:"'IBM Plex Sans'",size:11},color:css('--muted')}},
+        tooltip:{callbacks:{label:c=>`Δ ${Math.round(c.parsed.x)} MWh → Δ ${Math.round(c.parsed.y)} t`}}},
+      scales:{
+        x:{title:{display:true,text:'Δ Erzeugung bzw. Δ Residuallast [MWh/h]',
+           font:{family:"'IBM Plex Sans'",size:11},color:css('--muted')},
+           grid:{color:css('--grid')},ticks:{font:{family:"'IBM Plex Mono'",size:10},color:css('--muted')}},
+        y:{title:{display:true,text:'Δ Emissionen [t CO₂eq/h]',
+           font:{family:"'IBM Plex Sans'",size:11},color:css('--muted')},
+           grid:{color:css('--grid')},ticks:{font:{family:"'IBM Plex Mono'",size:10},color:css('--muted')}}}}
+  }));
+
+  // --- Häufigkeit marginaler Erzeuger ---
+  const cnt={};
+  for(let i=1;i<S.length;i++){
+    const d=S[i].res-S[i-1].res;
+    let best=null,bd=0;
+    for(const k of DISP){
+      const x=(S[i].v[k]??0)-(S[i-1].v[k]??0);
+      if(Math.sign(x)===Math.sign(d)&&Math.abs(x)>Math.abs(bd)){best=k;bd=x;}
+    }
+    if(best) cnt[best]=(cnt[best]??0)+1;
+  }
+  const tot=Object.values(cnt).reduce((s,v)=>s+v,0);
+  const ord=Object.entries(cnt).sort((a,b)=>b[1]-a[1]);
+  charts.push(new Chart(document.getElementById('cFreq'),{
+    type:'bar',
+    data:{labels:ord.map(([k])=>k),
+      datasets:[{data:ord.map(([,v])=>v/tot*100),
+        backgroundColor:ord.map(([k])=>css(COL[k]||'--muted')), borderWidth:0}]},
+    options:{indexAxis:'y',maintainAspectRatio:false,
+      plugins:{legend:{display:false},
+        tooltip:{callbacks:{label:c=>`${c.parsed.x.toFixed(0)} % der Stunden · ${F[c.label]} g/kWh`}}},
+      scales:{x:{title:{display:true,text:'Anteil der Stunden [%]',
+          font:{family:"'IBM Plex Sans'",size:11},color:css('--muted')},
+          grid:{color:css('--grid')},ticks:{font:{family:"'IBM Plex Mono'",size:10},color:css('--muted')}},
+        y:{grid:{display:false},ticks:{font:{family:"'IBM Plex Sans'",size:11},color:css('--ink')}}}}
+  }));
+
+  // --- MEF nach Netzzustand ---
+  const med=[...S.map(h=>h.res)].sort((a,b)=>a-b)[Math.floor(S.length/2)];
+  const hi=[],lo=[];
+  for(let i=1;i<S.length;i++){
+    (S[i].res>med?hi:lo).push([S[i].res-S[i-1].res, S[i].e-S[i-1].e]);
+  }
+  const rHi=regress(hi), rLo=regress(lo);
+  charts.push(new Chart(document.getElementById('cSplit'),{
+    type:'bar',
+    data:{labels:['AEF (Durchschnitt)','MEF gesamt','MEF · tiefe Residuallast','MEF · hohe Residuallast'],
+      datasets:[{data:[aef,mef,rLo.slope*1000,rHi.slope*1000],
+        backgroundColor:[css('--aef'),css('--mef'),css('--mef')+'99',css('--mef')+'99'],borderWidth:0}]},
+    options:{maintainAspectRatio:false,
+      plugins:{legend:{display:false},
+        tooltip:{callbacks:{label:c=>`${Math.round(c.parsed.y)} g CO₂eq/kWh`}}},
+      scales:{x:{grid:{display:false},ticks:{font:{family:"'IBM Plex Sans'",size:11},color:css('--ink')}},
+        y:{title:{display:true,text:'g CO₂eq/kWh',font:{family:"'IBM Plex Sans'",size:11},color:css('--muted')},
+          grid:{color:css('--grid')},ticks:{font:{family:"'IBM Plex Mono'",size:10},color:css('--muted')}}}}
+  }));
+}
+
+document.getElementById('go').addEventListener('click',run);
+run();
+</script>
+</body>
+</html>
