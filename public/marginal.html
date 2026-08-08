@@ -20,6 +20,7 @@ header{border-bottom:2px solid var(--ink);padding-bottom:1rem;margin-bottom:2rem
  text-transform:uppercase;color:var(--muted);margin-bottom:.4rem}
 h1{font-size:1.65rem;font-weight:600;letter-spacing:-.015em}
 .sub{color:var(--muted);font-size:.9rem;margin-top:.25rem;max-width:62ch}
+.sub,.note,footer,footer em{color:var(--muted)}
 .ctrl{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin-bottom:2rem}
 .ctrl label{font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.1em;
  text-transform:uppercase;color:var(--muted)}
@@ -180,15 +181,15 @@ function draw(hours){
     data:{datasets:[
       {label:`Gesamterzeugung  (R² ${rT.r2.toFixed(3)})`, data:dTot.map(p=>({x:p[0],y:p[1]})),
        backgroundColor:css('--muted')+'55', pointRadius:3},
-      {label:'', data:line(rT,xsT), type:'line', borderColor:css('--muted'),
+      {label:'_regressionslinie', data:line(rT,xsT), type:'line', borderColor:css('--muted'),
        borderWidth:1.5, borderDash:[5,4], pointRadius:0, fill:false},
       {label:`Residuallast  (R² ${rR.r2.toFixed(3)})`, data:dRes.map(p=>({x:p[0],y:p[1]})),
        backgroundColor:css('--mef')+'66', pointRadius:3},
-      {label:'', data:line(rR,xsR), type:'line', borderColor:css('--mef'),
+      {label:'_regressionslinie', data:line(rR,xsR), type:'line', borderColor:css('--mef'),
        borderWidth:2, pointRadius:0, fill:false},
     ]},
     options:{maintainAspectRatio:false,
-      plugins:{legend:{position:'bottom',labels:{filter:i=>i.text!=='',boxWidth:10,
+      plugins:{legend:{position:'bottom',labels:{filter:i=>!i.text.startsWith('_'),boxWidth:10,
         font:{family:"'IBM Plex Sans'",size:11},color:css('--muted')}},
         tooltip:{callbacks:{label:c=>`Δ ${Math.round(c.parsed.x)} MWh → Δ ${Math.round(c.parsed.y)} t`}}},
       scales:{
