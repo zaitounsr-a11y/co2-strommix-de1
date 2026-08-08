@@ -20,7 +20,7 @@ export const GRID_LOSSES_DE = 0.0446;   // CEER 2018, via GGC Anhang C
 export const BIOMASS_CONVENTION = 'ggc';
 
 const BIOMASS = {
-  ggc:       { scope2: 95,  lc: 230 },
+  ggc:       { scope2: 95,  lc: 53 },
   inclusive: { scope2: 978, lc: 1113 },
   zero:      { scope2: 0,   lc: 0 },
 };
