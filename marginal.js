@@ -121,47 +121,103 @@ console.log(`  tiefe Residuallast: ${(rLo.slope*1000).toFixed(0).padStart(5)} g/
 // ---------------------------------------------------------------------------
 console.log('\n\n=== B) MARGINALER ERZEUGER JE STUNDE ===\n');
 
+/**
+ * Pumpspeicher ist ein Sonderfall. Er ERZEUGT keine Energie, er verschiebt
+ * sie. Wenn er auf eine Laststeigerung reagiert, sind die Emissionen bereits
+ * frueher entstanden - bei den Kraftwerken, die ihn geladen haben.
+ * Ihn als "marginales Kraftwerk" zu zaehlen, ist eine Kategorienverwechslung.
+ *
+ * Deshalb drei Varianten:
+ *   B1  Speicher zaehlt mit eigenem Faktor        (naiv, zum Vergleich)
+ *   B2  Speicher ausgeschlossen -> naechstgroesster regelbarer Erzeuger
+ *   B3  Speicher zaehlt, aber mit dem MEF der Ladestunden / Wirkungsgrad
+ *
+ * B3 ist methodisch am saubersten: geladen wird bei niedriger Residuallast,
+ * also gilt der dort marginale Faktor, erhoeht um die Zyklusverluste.
+ */
+const ETA_ZYKLUS = 0.80;
+
+// MEF der Ladestunden ~ MEF im unteren Residuallast-Quartil
+const q25 = [...series.map(h => h.residual)].sort((a, b) => a - b)[Math.floor(series.length * 0.25)];
+const ladePaare = [];
+for (let i = 1; i < series.length; i++) {
+  if (series[i].residual <= q25) {
+    ladePaare.push([series[i].residual - series[i-1].residual,
+                    series[i].emis     - series[i-1].emis]);
+  }
+}
+const mefLade = ladePaare.length > 5 ? regress(ladePaare).slope * 1000 : rR.slope * 1000;
+const mefSpeicher = mefLade / ETA_ZYKLUS;
+
+console.log(`\nPumpspeicher, konsequenzielle Bewertung:`);
+console.log(`  MEF in den Ladestunden (unteres Quartil): ${mefLade.toFixed(0)} g/kWh`);
+console.log(`  / Zykluswirkungsgrad ${ETA_ZYKLUS}            = ${mefSpeicher.toFixed(0)} g/kWh`);
+console.log(`  (statt ${emissionFactors['Pumpspeicher']?.lc ?? 0} g/kWh aus der attributionalen Rechnung)\n`);
+
 const rows = [];
-const zaehler = {};
+const zaehler = {}, zaehlerOhne = {};
+let mefB1 = 0, mefB2 = 0, mefB3 = 0, nB2 = 0;
+
 for (let i = 1; i < series.length; i++) {
   const a = series[i - 1], b = series[i];
   const dRes = b.residual - a.residual;
 
-  // Wer hat sich am staerksten IN RICHTUNG der Residuallastaenderung bewegt?
-  let best = null, bestDelta = 0;
-  for (const k of DISPATCHABLE) {
-    const d = (b.values[k] ?? 0) - (a.values[k] ?? 0);
-    if (Math.sign(d) === Math.sign(dRes) && Math.abs(d) > Math.abs(bestDelta)) {
-      best = k; bestDelta = d;
-    }
-  }
-  if (!best) continue;
+  // alle regelbaren Erzeuger, die sich in Richtung der Residuallast bewegt haben,
+  // absteigend nach Betrag der Aenderung
+  const kandidaten = DISPATCHABLE
+    .map(k => ({ k, d: (b.values[k] ?? 0) - (a.values[k] ?? 0) }))
+    .filter(x => Math.sign(x.d) === Math.sign(dRes) && x.d !== 0)
+    .sort((x, y) => Math.abs(y.d) - Math.abs(x.d));
 
-  zaehler[best] = (zaehler[best] ?? 0) + 1;
+  if (!kandidaten.length) continue;
+
+  const best      = kandidaten[0];
+  const bestOhne  = kandidaten.find(x => x.k !== 'Pumpspeicher');
+
+  const fB1 = emissionFactors[best.k]?.lc ?? 0;
+  const fB3 = best.k === 'Pumpspeicher' ? mefSpeicher : fB1;
+
+  zaehler[best.k] = (zaehler[best.k] ?? 0) + 1;
+  mefB1 += fB1;
+  mefB3 += fB3;
+  if (bestOhne) {
+    zaehlerOhne[bestOhne.k] = (zaehlerOhne[bestOhne.k] ?? 0) + 1;
+    mefB2 += emissionFactors[bestOhne.k]?.lc ?? 0;
+    nB2++;
+  }
+
   rows.push({
-    t: b.t, marginal: best,
-    deckungsgrad: Math.abs(bestDelta / dRes),
-    mef_traeger: emissionFactors[best]?.lc ?? 0,
+    t: b.t,
+    marginal: best.k,
+    marginal_ohne_speicher: bestOhne ? bestOhne.k : '',
+    deckungsgrad: Math.abs(best.d / dRes),
+    mef_traeger: fB3,
     intensity: b.intensity,
   });
 }
 
 const gesamt = rows.length;
-console.log('Haeufigkeit als marginaler Erzeuger:');
-Object.entries(zaehler).sort((a, b) => b[1] - a[1]).forEach(([k, v]) => {
-  const bar = '#'.repeat(Math.round(v / gesamt * 40));
-  console.log(`  ${k.padEnd(24)} ${String(v).padStart(3)}  ${(v/gesamt*100).toFixed(0).padStart(3)}%  ${bar}`);
-});
+const zeige = (titel, z, n) => {
+  console.log(titel);
+  Object.entries(z).sort((a, b) => b[1] - a[1]).forEach(([k, v]) => {
+    console.log(`  ${k.padEnd(24)} ${String(v).padStart(3)}  ${(v/n*100).toFixed(0).padStart(3)}%  ${'#'.repeat(Math.round(v/n*40))}`);
+  });
+};
+zeige('Haeufigkeit als marginaler Erzeuger (inkl. Speicher):', zaehler, gesamt);
+zeige('\nOhne Speicher - welches Kraftwerk reagiert tatsaechlich:', zaehlerOhne, nB2);
 
-const mefMerit = rows.reduce((s, r) => s + r.mef_traeger, 0) / gesamt;
-console.log(`\nMittlerer MEF ueber die marginalen Traeger: ${mefMerit.toFixed(0)} g/kWh`);
-console.log(`Zum Vergleich Regression (Residuallast):    ${(rR.slope*1000).toFixed(0)} g/kWh`);
-console.log(`Zum Vergleich AEF (Task 1):                 ${aef.toFixed(0)} g/kWh`);
+console.log('\n--- MEF nach Verfahren ---');
+console.log(`  A   Regression (Residuallast)          ${(rR.slope*1000).toFixed(0).padStart(5)} g/kWh   R2 ${rR.r2.toFixed(3)}`);
+console.log(`  B1  Merit-Order, Speicher naiv         ${(mefB1/gesamt).toFixed(0).padStart(5)} g/kWh`);
+console.log(`  B2  Merit-Order, Speicher ausgenommen  ${(mefB2/nB2).toFixed(0).padStart(5)} g/kWh`);
+console.log(`  B3  Merit-Order, Speicher konsequenz.  ${(mefB3/gesamt).toFixed(0).padStart(5)} g/kWh   <- bevorzugt`);
+console.log(`  --  AEF (attributional, Task 1)        ${aef.toFixed(0).padStart(5)} g/kWh`);
+console.log(`\n  B3 / AEF = ${(mefB3/gesamt/aef).toFixed(2)}`);
 
 // ---------------------------------------------------------------------------
 writeFileSync('reference/marginal_analyse.csv',
-  ['timestamp,marginaler_traeger,mef_traeger_g_kwh,aef_stunde_g_kwh,deckungsgrad',
-   ...rows.map(r => [r.t, r.marginal, r.mef_traeger.toFixed(0),
+  ['timestamp,marginaler_traeger,marginal_ohne_speicher,mef_g_kwh,aef_stunde_g_kwh,deckungsgrad',
+   ...rows.map(r => [r.t, r.marginal, r.marginal_ohne_speicher, r.mef_traeger.toFixed(0),
                      r.intensity.toFixed(1), r.deckungsgrad.toFixed(2)].join(','))
   ].join('\n'));
 console.log('\nGeschrieben: reference/marginal_analyse.csv');
@@ -172,7 +228,12 @@ GRENZEN DIESER ANALYSE
     in denen der Grenzausgleich ueber die Kuppelstellen laeuft, ist die
     Zuordnung falsch.
   - Verfahren B nimmt genau EINEN marginalen Erzeuger je Stunde an.
-    Real reagieren mehrere Anlagen gleichzeitig.
+    Real reagieren mehrere Anlagen gleichzeitig. Die Regression (A) bildet
+    die Gesamtreaktion ab und ist deshalb der belastbarere Wert.
+  - Der Speicher-MEF in B3 wird aus dem unteren Residuallast-Quartil
+    geschaetzt, nicht aus den tatsaechlichen Ladezeitreihen. Diese liegen
+    in ENTSO-E als eigene Verbrauchsreihe vor und koennten ausgewertet
+    werden.
   - Must-run (KWK-Waermebedarf, Netzstabilitaet) ist nicht beruecksichtigt.
   - Stunden mit negativen Preisen oder EE-Abregelung muessten getrennt
     behandelt werden: dort verdraengt die naechste kWh Abregelung,
