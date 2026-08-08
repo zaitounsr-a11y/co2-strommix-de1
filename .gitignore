@@ -1,0 +1,10 @@
+# NIEMALS committen
+.env
+.env.local
+*.token
+
+node_modules/
+npm-debug.log*
+
+.DS_Store
+.vscode/
