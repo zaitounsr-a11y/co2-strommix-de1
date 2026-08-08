@@ -11,7 +11,8 @@
  */
 
 import { writeFileSync } from 'fs';
-import { calculateIntensity, emissionFactors, getScope3 } from './emissionFactors.js';
+import { calculateIntensity, calculateIntensityWithStorage,
+         emissionFactors, getScope3 } from './emissionFactors.js';
 
 const PROXY = 'http://localhost:3000';
 
@@ -50,20 +51,24 @@ if (missing.length) {
   console.warn('FEHLENDE FAKTOREN:', missing.join(', '));
 }
 
-// --- Rechnung ------------------------------------------------------------
-const rows = hours.map(h => {
-  const s2 = calculateIntensity(h.values, 'scope2');
-  const lc = calculateIntensity(h.values, 'lc');
+// --- Rechnung (Zwei-Pass, mit dynamisch bewertetem Pumpspeicher) ---------
+const s2All = calculateIntensityWithStorage(hours, 'scope2');
+const lcAll = calculateIntensityWithStorage(hours, 'lc');
 
-  return {
-    timestamp:     h.timestamp,
-    generation_MWh: Math.round(lc.totalMWh),
-    intensity_scope2: s2.intensity !== null ? +s2.intensity.toFixed(1) : '',
-    intensity_lc:     lc.intensity !== null ? +lc.intensity.toFixed(1) : '',
-    emissions_scope2_t: Math.round(s2.totalTons),
-    emissions_lc_t:     Math.round(lc.totalTons),
-  };
-});
+console.log('\nPumpspeicher-Bewertung:');
+console.log(`  mittlere Ladeintensitaet (Scope 2): ${s2All.mittlereLadeintensitaet.toFixed(1)} g/kWh`);
+console.log(`  -> Entladefaktor Scope 2:           ${s2All.speicherFaktor.toFixed(1)} g/kWh`);
+console.log(`  mittlere Ladeintensitaet (LC):      ${lcAll.mittlereLadeintensitaet.toFixed(1)} g/kWh`);
+console.log(`  -> Entladefaktor LC:                ${lcAll.speicherFaktor.toFixed(1)} g/kWh`);
+
+const rows = hours.map((h, i) => ({
+  timestamp:          h.timestamp,
+  generation_MWh:     Math.round(lcAll.rows[i].totalMWh),
+  intensity_scope2:   s2All.rows[i].intensity !== null ? +s2All.rows[i].intensity.toFixed(1) : '',
+  intensity_lc:       lcAll.rows[i].intensity !== null ? +lcAll.rows[i].intensity.toFixed(1) : '',
+  emissions_scope2_t: Math.round(s2All.rows[i].totalTons),
+  emissions_lc_t:     Math.round(lcAll.rows[i].totalTons),
+}));
 
 // --- Ausgabe -------------------------------------------------------------
 const valid = rows.filter(r => r.intensity_lc !== '');

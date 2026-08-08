@@ -44,8 +44,10 @@ export const emissionFactors = {
 
   'Biomasse':                BIOMASS[BIOMASS_CONVENTION],
 
-  // Pumpspeicher: v1 vereinfacht. Siehe TODO unten.
-  'Pumpspeicher':            { scope2: 0, lc: 0 },
+  // Pumpspeicher: wird NICHT hier bewertet, sondern dynamisch in
+  // calculateIntensityWithStorage(). Diese Werte sind nur Fallback,
+  // falls jemand calculateIntensity() direkt aufruft.
+  'Pumpspeicher':            { scope2: 392, lc: 430 },
 };
 
 /**
@@ -99,8 +101,72 @@ export function calculateIntensity(generationMWh, scope = 'lc') {
   };
 }
 
+/**
+ * Zwei-Pass-Berechnung mit dynamischer Bewertung des Pumpspeichers.
+ *
+ * Problem: Pumpspeicher erzeugt keinen Strom, er gibt gespeicherten Strom
+ * zurück. Ein Faktor von 0 wäre falsch (Strom war nicht emissionsfrei),
+ * ein fester Faktor auch (die Ladeintensität schwankt stündlich).
+ *
+ * Lösung (nach GGC-Logik, vereinfacht):
+ *   Pass 1: Intensität des Netzes OHNE Pumpspeicher berechnen.
+ *   Pass 2: Pumpspeicher-Entladung mit dem Mittel dieser Intensität
+ *           bewerten, geteilt durch den Zyklus-Wirkungsgrad (Verluste
+ *           beim Laden/Entladen erhöhen die Intensität je kWh Rückgabe).
+ *
+ * Abweichung zu GGC: GGC bucht die Ladeemissionen zum Zeitpunkt des
+ * Ladens. Wir mitteln über das Fenster. In der Limitationen-Sektion
+ * dokumentieren.
+ *
+ * @param {Array} hours  [{ timestamp, values: {...} }, ...] vom Proxy
+ * @param {'scope2'|'lc'} scope
+ * @param {number} cycleEfficiency  Zyklus-Wirkungsgrad, Default 0.80
+ */
+export function calculateIntensityWithStorage(hours, scope = 'lc', cycleEfficiency = 0.80) {
+  const STORAGE = 'Pumpspeicher';
+
+  // --- Pass 1: Intensität ohne Speicher ---------------------------------
+  let sumTons = 0;
+  let sumMWh  = 0;
+
+  for (const h of hours) {
+    const ohneSpeicher = { ...h.values };
+    delete ohneSpeicher[STORAGE];
+    const r = calculateIntensity(ohneSpeicher, scope);
+    sumTons += r.totalTons;
+    sumMWh  += r.totalMWh;
+  }
+
+  const mittlereLadeintensitaet = sumMWh > 0 ? (sumTons * 1000) / sumMWh : 0;
+  const speicherFaktor = mittlereLadeintensitaet / cycleEfficiency;
+
+  // --- Pass 2: mit bewertetem Speicher ----------------------------------
+  const ergebnis = hours.map(h => {
+    const r = calculateIntensity(
+      Object.fromEntries(Object.entries(h.values).filter(([k]) => k !== STORAGE)),
+      scope
+    );
+
+    const speicherMWh  = h.values[STORAGE] ?? 0;
+    const speicherTons = (speicherFaktor * speicherMWh) / 1000;
+
+    const totalTons = r.totalTons + speicherTons;
+    const totalMWh  = r.totalMWh  + speicherMWh;
+
+    return {
+      timestamp: h.timestamp,
+      intensity: totalMWh > 0 ? (totalTons * 1000) / totalMWh : null,
+      totalTons,
+      totalMWh,
+      perTraeger: { ...r.perTraeger, [STORAGE]: speicherTons },
+    };
+  });
+
+  return { rows: ergebnis, speicherFaktor, mittlereLadeintensitaet };
+}
+
 /* TODO vor Abgabe:
- * - Pumpspeicher: Entladung mit gewichteter Ladeintensität bewerten
+ * - Pumpspeicher: ggf. stündliche statt gemittelte Ladeintensität
  *   (CO2Map: 274 g/kWh für 2023, Zyklus-Wirkungsgrad 80 %)
  * - Wirkungsgrade aus Eurostat-Energiebilanzen herleiten statt aus CO2Map
  *   zurückrechnen (behebt Zirkularität in der Validierung)
