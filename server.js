@@ -24,8 +24,7 @@ import { calculateIntensityWithStorage } from './emissionFactors.js';
 const app = express();
 app.use(cors());
 app.use(express.static('public'));   // liefert public/index.html aus
-const PORT = 3000;
-
+const PORT = process.env.PORT || 3000;
 const ENTSOE_URL = 'https://web-api.tp.entsoe.eu/api';
 const GGC_URL    = 'https://explore.traxes.io/greengrid-compass/v1';
 const DE_LU      = '10Y1001A1001A82H';
@@ -300,7 +299,7 @@ app.get('/api/health', (_, res) => res.json({
 }));
 
 app.listen(PORT, () => {
-  console.log(`Proxy läuft auf http://localhost:${PORT}`);
+console.log(`Proxy läuft auf Port ${PORT}`);
   if (!process.env.ENTSOE_TOKEN) console.warn('⚠️  ENTSOE_TOKEN fehlt in .env');
   if (!process.env.GGC_TOKEN)    console.warn('⚠️  GGC_TOKEN fehlt in .env');
 });
