@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Marginaler Emissionsfaktor — DE-LU</title>
+<title>Marginal emission factor — DE-LU</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <style>
@@ -58,66 +58,67 @@ footer{border-top:1px solid var(--rule);padding-top:1rem;font-size:.78rem;color:
 <div class="wrap">
 
 <header>
-  <div class="eyebrow">Task 2 · Consequential LCA · Gebotszone DE-LU</div>
-  <h1>Was verursacht die nächste Kilowattstunde?</h1>
-  <p class="sub">Der attributionale Faktor (AEF) verteilt alle Emissionen auf allen Strom.
-     Der marginale Faktor (MEF) beantwortet eine andere Frage: welches Kraftwerk reagiert,
-     wenn der Verbrauch um eine kWh steigt — und was emittiert dieses.</p>
+  <div class="eyebrow">Task 2 · Consequential LCA · Bidding zone DE-LU</div>
+  <h1>What does the next kilowatt-hour cause?</h1>
+  <p class="sub">The attributional factor (AEF) spreads all emissions across all electricity.
+     The marginal factor (MEF) answers a different question: which power plant responds
+     when consumption rises by one kWh — and what does that plant emit.</p>
 </header>
 
 <div class="err" id="err"></div>
 
 <div class="ctrl">
-  <label for="von">Von</label><input type="date" id="von" value="2024-06-10">
-  <label for="bis">Bis</label><input type="date" id="bis" value="2024-06-17">
-  <button id="go">Berechnen</button>
+  <label for="von">From</label><input type="date" id="von" value="2024-06-10">
+  <label for="bis">To</label><input type="date" id="bis" value="2024-06-17">
+  <button id="go">Calculate</button>
 </div>
 
 <dl class="headline">
-  <div class="hcell aef"><dt>AEF — Durchschnitt</dt><dd id="vAef">—<small>g CO₂eq/kWh · attributional, Task 1</small></dd></div>
-  <div class="hcell mef"><dt>MEF — Grenzwert</dt><dd id="vMef">—<small>g CO₂eq/kWh · Regression auf Residuallast</small></dd></div>
+  <div class="hcell aef"><dt>AEF — average</dt><dd id="vAef">—<small>g CO₂eq/kWh · attributional, Task 1</small></dd></div>
+  <div class="hcell mef"><dt>MEF — marginal</dt><dd id="vMef">—<small>g CO₂eq/kWh · regression on residual load</small></dd></div>
 </dl>
 <div class="verdict" id="verdict">—</div>
 
 <section>
-  <h2>Warum die Bezugsgröße alles entscheidet</h2>
-  <p class="note">Jeder Punkt ist ein Stundenübergang. Links gegen die Gesamterzeugung —
-     kein Zusammenhang, weil Erzeugung vor allem mit der Sonne steigt und PV emissionsfrei ist.
-     Rechts gegen die Residuallast, also nach Abzug von Wind und PV: die Steigung dieser
-     Geraden <em>ist</em> der marginale Emissionsfaktor.</p>
+  <h2>Why the explanatory variable decides everything</h2>
+  <p class="note">Each point is one hour-to-hour transition. Against total generation there is no
+     relationship, because generation rises mainly with the sun and solar is emission-free.
+     Against residual load — demand after wind and solar have fed in — the slope of that
+     line <em>is</em> the marginal emission factor.</p>
   <div class="chart"><canvas id="cScatter"></canvas></div>
 </section>
 
 <section>
-  <h2>Welches Kraftwerk reagiert tatsächlich</h2>
-  <p class="note">Anteil der Stunden, in denen sich der jeweilige regelbare Erzeuger am
-     stärksten in Richtung der Residuallastveränderung bewegt hat. Pumpspeicher ist
-     ausgenommen: er erzeugt keine Energie, sondern verschiebt sie.</p>
+  <h2>Which power plant actually responds</h2>
+  <p class="note">Share of hours in which each dispatchable generator moved most strongly in the
+     direction of the change in residual load. Pumped storage is excluded: it does not
+     produce energy, it shifts it.</p>
   <div class="chart short"><canvas id="cFreq"></canvas></div>
 </section>
 
 <section>
-  <h2>MEF nach Netzzustand</h2>
-  <p class="note">Getrennte Regression für Stunden über und unter der mittleren Residuallast.</p>
+  <h2>MEF by grid state</h2>
+  <p class="note">Separate regressions for hours above and below median residual load.</p>
   <div class="chart short"><canvas id="cSplit"></canvas></div>
 </section>
 
 <footer>
-  Methode A nach Hawkes (2010), <em>Estimating marginal CO₂ emissions rates for national
-  electricity systems</em>, Energy Policy 38(10), 5977–5987. Methode B entspricht dem
-  „marginal power plant approach“ nach Fleschutz et al. (2021), Applied Energy 295, 117040.
-  Erzeugungsdaten: ENTSO-E Transparency Platform. Last durch Erzeugung angenähert,
-  Import/Export nicht berücksichtigt.
+  Method A follows Hawkes (2010), <em>Estimating marginal CO₂ emissions rates for national
+  electricity systems</em>, Energy Policy 38(10), 5977–5987. Method B corresponds to the
+  marginal power plant approach of Fleschutz et al. (2021), Applied Energy 295, 117040.
+  Generation data: ENTSO-E Transparency Platform. Load approximated by generation;
+  imports and exports are not included.
 </footer>
 </div>
 
 <script>
-// Faktoren spiegeln emissionFactors.js (Lebenszyklus)
+// Factors mirror emissionFactors.js (life cycle)
 const F = {'Braunkohle':1097,'Steinkohle':968,'Erdgas':492,'Sonstige Konventionelle':1384,
   'Biomasse':53,'Wasserkraft':24,'Pumpspeicher':430,'Wind Onshore':11,'Wind Offshore':12,
   'Photovoltaik':48,'Sonstige Erneuerbare':48,'Kernenergie':12};
 const VRE = ['Wind Onshore','Wind Offshore','Photovoltaik'];
 const DISP = ['Braunkohle','Steinkohle','Erdgas','Sonstige Konventionelle','Biomasse'];
+const LAB = {'Braunkohle':'Lignite','Steinkohle':'Hard coal','Erdgas':'Natural gas','Sonstige Konventionelle':'Other conventional','Biomasse':'Biomass'};
 const COL = {'Braunkohle':'--braunkohle','Steinkohle':'--steinkohle','Erdgas':'--erdgas',
   'Sonstige Konventionelle':'--sonstkonv','Biomasse':'--biomasse'};
 const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -139,11 +140,11 @@ async function run(){
     const r=await fetch(`/api/generation?start=${von}T00:00:00Z&end=${bis}T00:00:00Z`);
     const hours=await r.json();
     if(!r.ok) throw new Error(hours.error||`HTTP ${r.status}`);
-    if(!hours.length) throw new Error('Keine Daten für diesen Zeitraum.');
+    if(!hours.length) throw new Error('No data for this period.');
     errBox.style.display='none';
     draw(hours);
   }catch(e){
-    errBox.textContent='Fehler: '+e.message+' — Läuft der Proxy (npm start)?';
+    errBox.textContent='Error: '+e.message+' — is the proxy running (npm start)?';
     errBox.style.display='block';
   }
 }
@@ -170,8 +171,8 @@ function draw(hours){
   document.getElementById('vAef').firstChild.nodeValue=Math.round(aef);
   document.getElementById('vMef').firstChild.nodeValue=Math.round(mef);
   document.getElementById('verdict').textContent =
-    `Die nächste kWh ist ${(mef/aef).toFixed(2)}× so emissionsintensiv wie die durchschnittliche. `+
-    `(R² = ${rR.r2.toFixed(3)}, n = ${rR.n} Stundenübergänge)`;
+    `The next kWh is ${(mef/aef).toFixed(2)}× as emission-intensive as the average one. `+
+    `(R² = ${rR.r2.toFixed(3)}, n = ${rR.n} hourly transitions)`;
 
   // --- Streudiagramm ---
   const xsT=[Math.min(...dTot.map(p=>p[0])),Math.max(...dTot.map(p=>p[0]))];
@@ -179,11 +180,11 @@ function draw(hours){
   charts.push(new Chart(document.getElementById('cScatter'),{
     type:'scatter',
     data:{datasets:[
-      {label:`Gesamterzeugung  (R² ${rT.r2.toFixed(3)})`, data:dTot.map(p=>({x:p[0],y:p[1]})),
+      {label:`Total generation  (R² ${rT.r2.toFixed(3)})`, data:dTot.map(p=>({x:p[0],y:p[1]})),
        backgroundColor:css('--muted')+'55', pointRadius:3},
       {label:'_regressionslinie', data:line(rT,xsT), type:'line', borderColor:css('--muted'),
        borderWidth:1.5, borderDash:[5,4], pointRadius:0, fill:false},
-      {label:`Residuallast  (R² ${rR.r2.toFixed(3)})`, data:dRes.map(p=>({x:p[0],y:p[1]})),
+      {label:`Residual load  (R² ${rR.r2.toFixed(3)})`, data:dRes.map(p=>({x:p[0],y:p[1]})),
        backgroundColor:css('--mef')+'66', pointRadius:3},
       {label:'_regressionslinie', data:line(rR,xsR), type:'line', borderColor:css('--mef'),
        borderWidth:2, pointRadius:0, fill:false},
@@ -193,10 +194,10 @@ function draw(hours){
         font:{family:"'IBM Plex Sans'",size:11},color:css('--muted')}},
         tooltip:{callbacks:{label:c=>`Δ ${Math.round(c.parsed.x)} MWh → Δ ${Math.round(c.parsed.y)} t`}}},
       scales:{
-        x:{title:{display:true,text:'Δ Erzeugung bzw. Δ Residuallast [MWh/h]',
+        x:{title:{display:true,text:'Δ generation / Δ residual load [MWh/h]',
            font:{family:"'IBM Plex Sans'",size:11},color:css('--muted')},
            grid:{color:css('--grid')},ticks:{font:{family:"'IBM Plex Mono'",size:10},color:css('--muted')}},
-        y:{title:{display:true,text:'Δ Emissionen [t CO₂eq/h]',
+        y:{title:{display:true,text:'Δ emissions [t CO₂eq/h]',
            font:{family:"'IBM Plex Sans'",size:11},color:css('--muted')},
            grid:{color:css('--grid')},ticks:{font:{family:"'IBM Plex Mono'",size:10},color:css('--muted')}}}}
   }));
@@ -216,13 +217,13 @@ function draw(hours){
   const ord=Object.entries(cnt).sort((a,b)=>b[1]-a[1]);
   charts.push(new Chart(document.getElementById('cFreq'),{
     type:'bar',
-    data:{labels:ord.map(([k])=>k),
+    data:{labels:ord.map(([k])=>LAB[k]??k),
       datasets:[{data:ord.map(([,v])=>v/tot*100),
         backgroundColor:ord.map(([k])=>css(COL[k]||'--muted')), borderWidth:0}]},
     options:{indexAxis:'y',maintainAspectRatio:false,
       plugins:{legend:{display:false},
-        tooltip:{callbacks:{label:c=>`${c.parsed.x.toFixed(0)} % der Stunden · ${F[c.label]} g/kWh`}}},
-      scales:{x:{title:{display:true,text:'Anteil der Stunden [%]',
+        tooltip:{callbacks:{label:c=>`${c.parsed.x.toFixed(0)} % of hours`}}},
+      scales:{x:{title:{display:true,text:'Share of hours [%]',
           font:{family:"'IBM Plex Sans'",size:11},color:css('--muted')},
           grid:{color:css('--grid')},ticks:{font:{family:"'IBM Plex Mono'",size:10},color:css('--muted')}},
         y:{grid:{display:false},ticks:{font:{family:"'IBM Plex Sans'",size:11},color:css('--ink')}}}}
@@ -237,7 +238,7 @@ function draw(hours){
   const rHi=regress(hi), rLo=regress(lo);
   charts.push(new Chart(document.getElementById('cSplit'),{
     type:'bar',
-    data:{labels:['AEF (Durchschnitt)','MEF gesamt','MEF · tiefe Residuallast','MEF · hohe Residuallast'],
+    data:{labels:['AEF (average)','MEF overall','MEF · low residual load','MEF · high residual load'],
       datasets:[{data:[aef,mef,rLo.slope*1000,rHi.slope*1000],
         backgroundColor:[css('--aef'),css('--mef'),css('--mef')+'99',css('--mef')+'99'],borderWidth:0}]},
     options:{maintainAspectRatio:false,

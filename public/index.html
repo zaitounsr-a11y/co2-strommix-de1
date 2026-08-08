@@ -64,6 +64,7 @@ h2{font-size:.8rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase
   color:var(--muted);padding-bottom:.5rem;border-bottom:1px solid var(--rule);margin-bottom:1rem}
 .chart{height:300px;position:relative}
 footer{border-top:1px solid var(--rule);padding-top:1rem;font-size:.78rem;color:var(--muted)}
+footer,footer code,footer span{color:var(--muted)}
 footer code{font-family:'IBM Plex Mono',monospace;font-size:.95em}
 .err{background:#FBEAE5;border-left:3px solid var(--erdgas);padding:.85rem 1rem;
   font-size:.88rem;margin-bottom:1.5rem;display:none}
@@ -90,7 +91,7 @@ footer code{font-family:'IBM Plex Mono',monospace;font-size:.95em}
     </div>
     <div class="scale">
       <div class="band"><div class="needle" id="needle" style="left:0"></div></div>
-      <div class="ticks"><span>0</span><span>150</span><span>300</span><span>450</span><span>600</span></div>
+      <div class="ticks" id="ticks"></div>
       <div class="scale-cap">Einordnung im Bereich der letzten Tage</div>
     </div>
   </div>
@@ -171,8 +172,14 @@ function render(d){
 
   // Leitwert + Nadel
   document.getElementById('bigVal').firstChild.nodeValue = Math.round(last.lc);
+  // Skala an die tatsaechliche Spanne anpassen, auf 50er gerundet,
+  // mit etwas Luft nach oben und unten. So bleibt die Nadelposition aussagekraeftig.
+  const lo = Math.max(0, Math.floor((min - 20) / 50) * 50);
+  const hi = Math.ceil((max + 20) / 50) * 50;
+  document.getElementById('ticks').innerHTML =
+    [0, .25, .5, .75, 1].map(f => `<span>${Math.round(lo + (hi - lo) * f)}</span>`).join('');
   document.getElementById('needle').style.left =
-    Math.max(0, Math.min(100, last.lc / 600 * 100)) + '%';
+    Math.max(0, Math.min(100, (last.lc - lo) / (hi - lo) * 100)) + '%';
 
   // Kennzahlen
   const ee = Object.entries(last.generation)
