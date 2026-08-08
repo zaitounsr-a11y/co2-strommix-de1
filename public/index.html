@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CO₂-Intensität des deutschen Strommixes</title>
+<title>Carbon intensity of the German electricity mix</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
@@ -77,54 +77,55 @@ footer code{font-family:'IBM Plex Mono',monospace;font-size:.95em}
 <div class="wrap">
 
   <header>
-    <div class="eyebrow">Gebotszone DE-LU · stündlich · eigene Berechnung</div>
-    <h1>CO₂-Intensität des deutschen Strommixes</h1>
-    <p class="sub">Lebenszyklusbetrachtung nach der Methodik des Green Grid Compass,
-       berechnet aus ENTSO-E-Erzeugungsdaten. HAW Hamburg, Studienprojekt.</p>
+    <div class="eyebrow">Bidding zone DE-LU · hourly · own calculation</div>
+    <h1>Carbon intensity of the German electricity mix</h1>
+    <p class="sub">Life-cycle assessment following the Green Grid Compass methodology,
+       calculated from ENTSO-E generation data. HAW Hamburg, student project.</p>
   </header>
 
   <div class="err" id="err"></div>
 
   <div class="now">
     <div>
-      <div class="big" id="bigVal">—<span class="unit">g CO₂eq / kWh · Lebenszyklus</span></div>
+      <div class="big" id="bigVal">—<span class="unit">g CO₂eq / kWh · life cycle</span></div>
     </div>
     <div class="scale">
       <div class="band"><div class="needle" id="needle" style="left:0"></div></div>
       <div class="ticks" id="ticks"></div>
-      <div class="scale-cap">Einordnung im Bereich der letzten Tage</div>
+      <div class="scale-cap">Position within the range of the period shown</div>
     </div>
   </div>
 
   <dl class="stats">
-    <div class="stat"><dt>Stand</dt><dd id="sTime">—</dd></div>
-    <div class="stat"><dt>Nur Verbrennung</dt><dd id="sS2">—<small> g/kWh</small></dd></div>
-    <div class="stat"><dt>Vorkette + Bau</dt><dd id="sS3">—<small> g/kWh</small></dd></div>
-    <div class="stat"><dt>Erneuerbar</dt><dd id="sEE">—<small> %</small></dd></div>
-    <div class="stat"><dt>Erzeugung</dt><dd id="sGen">—<small> MWh/h</small></dd></div>
-    <div class="stat"><dt>Spanne Zeitraum</dt><dd id="sRange">—</dd></div>
+    <div class="stat"><dt>As of</dt><dd id="sTime">—</dd></div>
+    <div class="stat"><dt>Combustion only</dt><dd id="sS2">—<small> g/kWh</small></dd></div>
+    <div class="stat"><dt>Upstream + construction</dt><dd id="sS3">—<small> g/kWh</small></dd></div>
+    <div class="stat"><dt>Renewable</dt><dd id="sEE">—<small> %</small></dd></div>
+    <div class="stat"><dt>Generation</dt><dd id="sGen">—<small> MWh/h</small></dd></div>
+    <div class="stat"><dt>Range in period</dt><dd id="sRange">—</dd></div>
   </dl>
 
   <section>
-    <h2>Verlauf der Emissionsintensität</h2>
+    <h2>Emission intensity over time</h2>
     <div class="chart"><canvas id="cInt"></canvas></div>
   </section>
 
   <section>
-    <h2>Stromerzeugung nach Energieträger</h2>
+    <h2>Electricity generation by source</h2>
     <div class="chart"><canvas id="cMix"></canvas></div>
   </section>
 
   <footer>
-    Erzeugungsdaten: ENTSO-E Transparency Platform, <code>Actual Generation per Production Type</code>.
-    Emissionsfaktoren: EU-JRC (fossil, über den Wirkungsgrad auf Stromerzeugung umgerechnet),
-    IPCC AR5 Annex III (erneuerbar), Biomasse nach GGC-Konvention ohne biogenes CO₂.
-    Netzverluste 4,46 %. Ohne Import/Export, ohne Skalierung auf Eurostat, ohne KWK-Allokation.
-    Datenabruf mit 3 Stunden Verzögerung. <span id="fSpeicher"></span>
+    Generation data: ENTSO-E Transparency Platform, <code>Actual Generation per Production Type</code>.
+    Emission factors: EU JRC (fossil, converted to an electricity basis via plant efficiency),
+    IPCC AR5 Annex III (renewables), biomass per the GGC convention excluding biogenic CO₂.
+    Grid losses 4.46 %. Excludes imports/exports, Eurostat scaling and CHP allocation.
+    Data retrieved with a 3-hour delay. <span id="fSpeicher"></span>
   </footer>
 </div>
 
 <script>
+const LABELS = {'Braunkohle':'Lignite','Steinkohle':'Hard coal','Erdgas':'Natural gas','Sonstige Konventionelle':'Other conventional','Pumpspeicher':'Pumped storage','Biomasse':'Biomass','Wasserkraft':'Hydro','Wind Offshore':'Wind offshore','Wind Onshore':'Wind onshore','Photovoltaik':'Solar PV','Sonstige Erneuerbare':'Other renewable'};
 const CARRIERS = [
   ['Braunkohle','--braunkohle'],['Steinkohle','--steinkohle'],['Erdgas','--erdgas'],
   ['Sonstige Konventionelle','--sonstkonv'],['Pumpspeicher','--speicher'],
@@ -135,7 +136,7 @@ const CARRIERS = [
 const ERNEUERBAR = new Set(['Biomasse','Wasserkraft','Wind Offshore','Wind Onshore',
                             'Photovoltaik','Sonstige Erneuerbare']);
 const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-const fmtTime = t => new Date(t).toLocaleString('de-DE',
+const fmtTime = t => new Date(t).toLocaleString('en-GB',
   {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',timeZone:'UTC'}) + ' UTC';
 
 const baseScales = {
@@ -157,8 +158,8 @@ async function load(){
     errBox.style.display='none';
     render(d);
   }catch(e){
-    errBox.textContent = 'Daten konnten nicht geladen werden: ' + e.message
-      + '  —  Läuft der Proxy (npm start) und steht der Token in .env?';
+    errBox.textContent = 'Could not load data: ' + e.message
+      + '  —  Is the proxy running (npm start) and the token set in .env?';
     errBox.style.display='block';
   }
 }
@@ -189,10 +190,10 @@ function render(d){
   set('sS2',    Math.round(last.scope2));
   set('sS3',    Math.round(last.lc - last.scope2));
   set('sEE',    Math.round(ee / last.totalMWh * 100));
-  set('sGen',   last.totalMWh.toLocaleString('de-DE'));
+  set('sGen',   last.totalMWh.toLocaleString('en-GB'));
   set('sRange', `${Math.round(min)}–${Math.round(max)}`);
   document.getElementById('fSpeicher').textContent =
-    `Pumpspeicher-Entladung mit ${d.speicherFaktor} g/kWh bewertet (aus dem Zeitraum abgeleitet).`;
+    `Pumped-storage discharge valued at ${d.speicherFaktor} g/kWh, derived from the period shown.`;
 
   const t = hours.map(h => h.timestamp);
 
@@ -200,9 +201,9 @@ function render(d){
   chartInt = new Chart(document.getElementById('cInt'), {
     type:'line',
     data:{labels:t, datasets:[
-      {label:'Lebenszyklus', data:vals, borderColor:css('--ink'),
+      {label:'Life cycle', data:vals, borderColor:css('--ink'),
        borderWidth:2, pointRadius:0, tension:.25, fill:false},
-      {label:'nur Verbrennung (Scope 2)', data:hours.map(h=>h.scope2),
+      {label:'Combustion only (Scope 2)', data:hours.map(h=>h.scope2),
        borderColor:css('--muted'), borderWidth:1, borderDash:[4,3],
        pointRadius:0, tension:.25, fill:false},
     ]},
@@ -219,14 +220,14 @@ function render(d){
   chartMix = new Chart(document.getElementById('cMix'), {
     type:'line',
     data:{labels:t, datasets:CARRIERS.map(([name,v])=>({
-      label:name, data:hours.map(h=>h.generation[name] ?? 0),
+      label:LABELS[name] ?? name, data:hours.map(h=>h.generation[name] ?? 0),
       backgroundColor:css(v), borderColor:css(v), borderWidth:0,
       pointRadius:0, fill:true, tension:.2}))},
     options:{maintainAspectRatio:false, interaction:{mode:'index',intersect:false},
       plugins:{legend:legendCfg,
-        tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${Math.round(c.parsed.y).toLocaleString('de-DE')} MWh`}}},
+        tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${Math.round(c.parsed.y).toLocaleString('en-GB')} MWh`}}},
       scales:{...baseScales, y:{stacked:true,
-        title:{display:true,text:'MWh pro Stunde',
+        title:{display:true,text:'MWh per hour',
           font:{family:"'IBM Plex Sans'",size:11},color:css('--muted')},
         grid:{color:css('--rule')},
         ticks:{font:{family:"'IBM Plex Mono'",size:10},color:css('--muted')}}}}
@@ -234,7 +235,7 @@ function render(d){
 }
 
 load();
-setInterval(load, 15*60*1000);   // alle 15 Minuten aktualisieren
+setInterval(load, 15*60*1000);   // refresh every 15 minutes
 </script>
 </body>
 </html>
