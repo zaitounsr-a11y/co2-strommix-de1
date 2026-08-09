@@ -24,10 +24,26 @@ import { calculateIntensityWithStorage } from './emissionFactors.js';
 const app = express();
 app.use(cors());
 app.use(express.static('public'));   // liefert public/index.html aus
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3000;   // Hoster geben den Port vor
+
 const ENTSOE_URL = 'https://web-api.tp.entsoe.eu/api';
 const GGC_URL    = 'https://explore.traxes.io/greengrid-compass/v1';
 const DE_LU      = '10Y1001A1001A82H';
+
+// Nachbarn der Gebotszone DE-LU (EIC-Codes)
+const NACHBARN = {
+  'AT':  '10YAT-APG------L',
+  'BE':  '10YBE----------2',
+  'CH':  '10YCH-SWISSGRIDZ',
+  'CZ':  '10YCZ-CEPS-----N',
+  'DK1': '10YDK-1--------W',
+  'DK2': '10YDK-2--------M',
+  'FR':  '10YFR-RTE------C',
+  'NL':  '10YNL----------L',
+  'NO2': '10YNO-2--------T',
+  'PL':  '10YPL-AREA-----S',
+  'SE4': '10Y1001A1001A47J',
+};
 
 // ---------------------------------------------------------------------------
 // ENTSO-E PsrType -> unsere Energieträger-Namen
@@ -168,6 +184,107 @@ function parseGeneration(xml) {
     .map(([timestamp, values]) => ({ timestamp, values }));
 }
 
+/**
+ * Parst die ENTSO-E-Antwort auf Lastfluesse (A11).
+ * Wurzelelement ist Publication_MarketDocument, nicht GL_MarketDocument.
+ * Rueckgabe: Map ISO-Stunde -> MW (bzw. MWh bei Stundenaufloesung)
+ */
+function parseFlow(xml) {
+  const doc = parser.parse(xml);
+  if (doc.Acknowledgement_MarketDocument) return new Map();   // kein Fluss gemeldet
+  const root = doc.Publication_MarketDocument;
+  if (!root) return new Map();
+
+  let series = root.TimeSeries ?? [];
+  if (!Array.isArray(series)) series = [series];
+
+  const hours = new Map();
+  for (const ts of series) {
+    let periods = ts.Period ?? [];
+    if (!Array.isArray(periods)) periods = [periods];
+    for (const period of periods) {
+      const start = new Date(period.timeInterval.start);
+      const res = period.resolution;
+      const stepMin = res === 'PT15M' ? 15 : res === 'PT30M' ? 30 : 60;
+      let points = period.Point ?? [];
+      if (!Array.isArray(points)) points = [points];
+      for (const pt of points) {
+        const pos = Number(pt.position), qty = Number(pt.quantity);
+        if (!isFinite(qty)) continue;
+        const t = new Date(start.getTime() + (pos - 1) * stepMin * 60000);
+        t.setUTCMinutes(0, 0, 0);
+        const key = t.toISOString();
+        hours.set(key, (hours.get(key) ?? 0) + qty * (stepMin / 60));
+      }
+    }
+  }
+  return hours;
+}
+
+async function getFlow(from, to, start, end) {
+  const key = `flow:${from}:${to}:${start}:${end}`;
+  const cached = fromCache(key);
+  if (cached) return new Map(cached);
+
+  const params = new URLSearchParams({
+    documentType: 'A11',
+    out_Domain: from,
+    in_Domain:  to,
+    periodStart: toEntsoeDate(start),
+    periodEnd:   toEntsoeDate(end),
+  });
+  const r = await throttled(`${ENTSOE_URL}?${params}`, {
+    headers: { SECURITY_TOKEN: process.env.ENTSOE_TOKEN },
+  });
+  if (!r.ok) return new Map();          // fehlende Grenze -> leer, nicht Abbruch
+  const m = parseFlow(await r.text());
+  toCache(key, [...m.entries()]);
+  return m;
+}
+
+// ---------------------------------------------------------------------------
+// Route: Erzeugung einer beliebigen Zone (fuer Nachbarn)
+//   GET /api/zone-generation?zone=FR&start=...&end=...
+// ---------------------------------------------------------------------------
+app.get('/api/zone-generation', async (req, res) => {
+  const { zone, start, end } = req.query;
+  const eic = NACHBARN[zone] ?? zone;
+  try {
+    res.json(await getGeneration(start, end, eic));
+  } catch (err) {
+    res.status(502).json({ error: err.message, zone });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Route: Grenzueberschreitende Lastfluesse
+//   GET /api/flows?start=...&end=...
+// Rueckgabe je Stunde: Nettoimport je Grenze in MWh (positiv = Import nach DE)
+// ---------------------------------------------------------------------------
+app.get('/api/flows', async (req, res) => {
+  const { start, end } = req.query;
+  if (!start || !end) return res.status(400).json({ error: 'start und end erforderlich' });
+
+  try {
+    const out = {};
+    for (const [name, eic] of Object.entries(NACHBARN)) {
+      const rein  = await getFlow(eic, DE_LU, start, end);   // Nachbar -> DE
+      const raus  = await getFlow(DE_LU, eic, start, end);   // DE -> Nachbar
+      const keys  = new Set([...rein.keys(), ...raus.keys()]);
+      for (const k of keys) {
+        out[k] ??= {};
+        out[k][name] = (rein.get(k) ?? 0) - (raus.get(k) ?? 0);   // netto
+      }
+    }
+    res.json(Object.entries(out)
+      .sort((a, b) => new Date(a[0]) - new Date(b[0]))
+      .map(([timestamp, borders]) => ({ timestamp, borders })));
+  } catch (err) {
+    console.error('[flows]', err.message);
+    res.status(502).json({ error: err.message });
+  }
+});
+
 // ---------------------------------------------------------------------------
 // Route: Stromerzeugung aus ENTSO-E
 //   GET /api/generation?start=2026-07-13T00:00:00Z&end=2026-07-20T00:00:00Z
@@ -299,7 +416,7 @@ app.get('/api/health', (_, res) => res.json({
 }));
 
 app.listen(PORT, () => {
-console.log(`Proxy läuft auf Port ${PORT}`);
+  console.log(`Proxy läuft auf Port ${PORT}`);
   if (!process.env.ENTSOE_TOKEN) console.warn('⚠️  ENTSOE_TOKEN fehlt in .env');
   if (!process.env.GGC_TOKEN)    console.warn('⚠️  GGC_TOKEN fehlt in .env');
 });
