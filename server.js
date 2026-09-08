@@ -387,7 +387,8 @@ async function getGeneration(start, end, zone = DE_LU) {
   if (r.status === 429) throw new Error('Rate Limit erreicht — 10 Minuten warten');
   if (!r.ok)            throw new Error(`ENTSO-E antwortete mit ${r.status}`);
 
-  const data = parseGeneration(await r.text());
+  const rawXml = await r.text();
+  const data = parseGeneration(rawXml);
   toCache(key, data);
   return data;
 }
@@ -497,4 +498,6 @@ app.listen(PORT, () => {
   if (!process.env.ENTSOE_TOKEN) console.warn('⚠️  ENTSOE_TOKEN fehlt in .env');
   if (!process.env.GGC_TOKEN)    console.warn('⚠️  GGC_TOKEN fehlt in .env');
 });
+
+
 
