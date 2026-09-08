@@ -256,6 +256,82 @@ app.get('/api/zone-generation', async (req, res) => {
   }
 });
 
+/**
+ * Parst Day-Ahead-Preise (A44). Wurzelelement Publication_MarketDocument,
+ * Preis steht in Point/price.amount statt in quantity.
+ */
+function parsePrices(xml) {
+  const doc = parser.parse(xml);
+  if (doc.Acknowledgement_MarketDocument) return [];
+  const root = doc.Publication_MarketDocument;
+  if (!root) return [];
+
+  let series = root.TimeSeries ?? [];
+  if (!Array.isArray(series)) series = [series];
+
+  const hours = new Map();
+  for (const ts of series) {
+    let periods = ts.Period ?? [];
+    if (!Array.isArray(periods)) periods = [periods];
+    for (const period of periods) {
+      const start = new Date(period.timeInterval.start);
+      const res = period.resolution;
+      const stepMin = res === 'PT15M' ? 15 : res === 'PT30M' ? 30 : 60;
+      let points = period.Point ?? [];
+      if (!Array.isArray(points)) points = [points];
+      // Preise sind Momentanwerte, nicht Mengen -> Mittelwert je Stunde
+      for (const pt of points) {
+        const pos = Number(pt.position);
+        const amt = Number(pt['price.amount']);
+        if (!isFinite(amt)) continue;
+        const t = new Date(start.getTime() + (pos - 1) * stepMin * 60000);
+        t.setUTCMinutes(0, 0, 0);
+        const key = t.toISOString();
+        const e = hours.get(key) ?? { sum: 0, n: 0 };
+        e.sum += amt; e.n += 1;
+        hours.set(key, e);
+      }
+    }
+  }
+  return [...hours.entries()]
+    .sort((a, b) => new Date(a[0]) - new Date(b[0]))
+    .map(([timestamp, v]) => ({ timestamp, price: v.sum / v.n }));
+}
+
+// ---------------------------------------------------------------------------
+// Route: Day-Ahead-Preise
+//   GET /api/prices?start=...&end=...
+// ---------------------------------------------------------------------------
+app.get('/api/prices', async (req, res) => {
+  const { start, end, zone = DE_LU } = req.query;
+  if (!start || !end) return res.status(400).json({ error: 'start und end erforderlich' });
+
+  const key = `price:${zone}:${start}:${end}`;
+  const cached = fromCache(key);
+  if (cached) return res.json(cached);
+
+  const params = new URLSearchParams({
+    documentType: 'A44',
+    in_Domain:  zone,
+    out_Domain: zone,
+    periodStart: toEntsoeDate(start),
+    periodEnd:   toEntsoeDate(end),
+  });
+
+  try {
+    const r = await throttled(`${ENTSOE_URL}?${params}`, {
+      headers: { SECURITY_TOKEN: process.env.ENTSOE_TOKEN },
+    });
+    if (!r.ok) throw new Error(`ENTSO-E antwortete mit ${r.status}`);
+    const data = parsePrices(await r.text());
+    toCache(key, data);
+    res.json(data);
+  } catch (err) {
+    console.error('[prices]', err.message);
+    res.status(502).json({ error: err.message });
+  }
+});
+
 // ---------------------------------------------------------------------------
 // Route: Grenzueberschreitende Lastfluesse
 //   GET /api/flows?start=...&end=...
@@ -354,6 +430,7 @@ app.get('/api/intensity', async (req, res) => {
       hours: gen.map((h, i) => ({
         timestamp:  h.timestamp,
         generation: h.values,
+        emissions:  lc.rows[i].perTraeger,
         totalMWh:   Math.round(lc.rows[i].totalMWh),
         scope2:     s2.rows[i].intensity,
         lc:         lc.rows[i].intensity,
@@ -420,3 +497,4 @@ app.listen(PORT, () => {
   if (!process.env.ENTSOE_TOKEN) console.warn('⚠️  ENTSOE_TOKEN fehlt in .env');
   if (!process.env.GGC_TOKEN)    console.warn('⚠️  GGC_TOKEN fehlt in .env');
 });
+

@@ -113,6 +113,7 @@ footer code{font-family:'IBM Plex Mono',monospace;font-size:.95em}
   <section>
     <h2>Electricity generation by source</h2>
     <div class="chart"><canvas id="cMix"></canvas></div>
+    <div class="chart"><canvas id="cEmissions"></canvas></div>
   </section>
 
   <footer>
@@ -147,7 +148,7 @@ const baseScales = {
 const legendCfg = {position:'bottom',labels:{boxWidth:10,boxHeight:10,padding:12,
   font:{family:"'IBM Plex Sans'",size:11},color:css('--muted')}};
 
-let chartInt, chartMix;
+let chartInt, chartMix, chartEmissions;
 
 async function load(){
   const errBox = document.getElementById('err');
@@ -232,6 +233,23 @@ function render(d){
         grid:{color:css('--rule')},
         ticks:{font:{family:"'IBM Plex Mono'",size:10},color:css('--muted')}}}}
   });
+
+  chartEmissions?.destroy();
+  chartEmissions = new Chart(document.getElementById('cEmissions'), {
+    type:'line',
+    data:{labels:t, datasets:CARRIERS.map(([name,v])=>({
+      label:LABELS[name] ?? name, data:hours.map(h=>h.emissions?.[name] ?? 0),
+      backgroundColor:css(v), borderColor:css(v), borderWidth:0,
+      pointRadius:0, fill:true, tension:.2}))},
+    options:{maintainAspectRatio:false, interaction:{mode:'index',intersect:false},
+      plugins:{legend:legendCfg,
+        tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y.toFixed(1)} t CO2eq`}}},
+      scales:{...baseScales, y:{stacked:true,
+        title:{display:true,text:'t CO2eq per hour',
+          font:{family:"'IBM Plex Sans'",size:11},color:css('--muted')},
+        grid:{color:css('--rule')},
+        ticks:{font:{family:"'IBM Plex Mono'",size:10},color:css('--muted')}}}}
+  });
 }
 
 load();
@@ -239,3 +257,5 @@ setInterval(load, 15*60*1000);   // refresh every 15 minutes
 </script>
 </body>
 </html>
+
+
