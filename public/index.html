@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -166,7 +166,7 @@ async function load(){
 }
 
 function render(d){
-  const hours = d.hours.filter(h => h.lc !== null);
+  const hours = d.hours.filter(h => h.lc !== null && h.totalMWh > 20000);
   if(!hours.length) return;
   const last = hours[hours.length-1];
   const vals = hours.map(h => h.lc);
@@ -245,7 +245,7 @@ function render(d){
       plugins:{legend:legendCfg,
         tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y.toFixed(1)} t CO2eq`}}},
       scales:{...baseScales, y:{stacked:true,
-        title:{display:true,text:'t CO2eq per hour',
+        min:0, title:{display:true,text:'t CO2eq per hour',
           font:{family:"'IBM Plex Sans'",size:11},color:css('--muted')},
         grid:{color:css('--rule')},
         ticks:{font:{family:"'IBM Plex Mono'",size:10},color:css('--muted')}}}}
