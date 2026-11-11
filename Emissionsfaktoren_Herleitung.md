@@ -66,11 +66,11 @@ These cannot come from JRC. Values below are **IPCC AR5 Annex III lifecycle medi
 | Hydro (run-of-river/reservoir) | 0 | **24** | Wide spread in literature |
 | Nuclear | 0 | **12** | GGC also uses IPCC here |
 | Geothermal | 0 | **38** | Negligible in DE |
-| Biomass | **~95** | see note | GGC convention |
+| Biomass | **~5** | **53** | GGC convention; ~5 derived from GGC operational export (not a published factor) |
 
 ### The biomass decision — flag this in the meeting
 
-GGC's biomass factor **excludes biogenic combustion CO₂**, on the reasoning that the carbon was absorbed during growth. Direct factor ≈ **95 gCO₂eq/kWh**.
+GGC's biomass factor **excludes biogenic combustion CO₂**, on the reasoning that the carbon was absorbed during growth. The old value 95 gCO₂eq/kWh is a UBA figure (biomass provision plus non-CO₂ gases) and was wrongly used as Scope 2. GGC's operational export implies about **5 g/kWh** (emissions ÷ generation), life cycle **53**.
 
 If you *include* biogenic CO₂, the direct factor becomes ≈ **978 gCO₂eq/kWh** — a tenfold jump. GGC states both numbers explicitly and chooses to exclude, which the GHG Protocol permits for location-based Scope 2.
 
