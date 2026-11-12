@@ -166,7 +166,13 @@ async function load(){
 }
 
 function render(d){
-  const hours = d.hours.filter(h => h.lc !== null && h.totalMWh > 20000);
+  // Hide hours that ENTSO-E has not fully published yet: wind, solar and hydro
+  // arrive first, lignite, hard coal and gas later. Require the big thermal carriers.
+  const complete = h => h.lc !== null && h.totalMWh > 20000
+    && (h.generation['Braunkohle'] || 0) > 0
+    && (h.generation['Steinkohle'] || 0) > 0
+    && (h.generation['Erdgas'] || 0) > 0;
+  const hours = d.hours.filter(complete);
   if(!hours.length) return;
   const last = hours[hours.length-1];
   const vals = hours.map(h => h.lc);
