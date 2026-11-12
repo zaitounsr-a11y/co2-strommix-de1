@@ -411,12 +411,28 @@ app.get('/api/generation', async (req, res) => {
 //   GET /api/intensity?hours=48
 // ---------------------------------------------------------------------------
 app.get('/api/intensity', async (req, res) => {
-  const hoursBack = Math.min(Number(req.query.hours) || 48, 168);
-
-  // ENTSO-E liefert mit Verzoegerung; GGC wartet bewusst 3 h.
-  const end   = new Date(Date.now() - 3 * 3600e3);
-  end.setUTCMinutes(0, 0, 0);
-  const start = new Date(end.getTime() - hoursBack * 3600e3);
+  // Optional: freier Zeitraum (UTC), z.B. ?start=2024-06-10T00:00Z&end=2024-06-17T00:00Z
+  // Ohne start/end: wie bisher die letzten ?hours= Stunden (max 168).
+  const MAX_HOURS = 14 * 24;
+  let start, end;
+  if (req.query.start && req.query.end) {
+    start = new Date(req.query.start);
+    end   = new Date(req.query.end);
+    if (isNaN(start) || isNaN(end) || end <= start) {
+      return res.status(400).json({ error: 'Ungueltiger Zeitraum: start muss vor end liegen' });
+    }
+    start.setUTCMinutes(0, 0, 0);
+    end.setUTCMinutes(0, 0, 0);
+    if ((end - start) / 3600e3 > MAX_HOURS) {
+      return res.status(400).json({ error: 'Zeitraum zu lang (maximal 14 Tage)' });
+    }
+  } else {
+    const hoursBack = Math.min(Number(req.query.hours) || 48, 168);
+    // ENTSO-E liefert mit Verzoegerung; GGC wartet bewusst 3 h.
+    end = new Date(Date.now() - 3 * 3600e3);
+    end.setUTCMinutes(0, 0, 0);
+    start = new Date(end.getTime() - hoursBack * 3600e3);
+  }
 
   try {
     const gen = await getGeneration(start.toISOString(), end.toISOString());
