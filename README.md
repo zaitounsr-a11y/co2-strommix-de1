@@ -44,6 +44,7 @@ Other scripts (run with `node <file>`):
 | `marginal.js` | Task 2: marginal emission factor (regression) |
 | `imports.js` | Extension: consumption mix with imports |
 | `curtailment.js` | Extension: marginal factor by day-ahead price level (price proxy for surplus hours) |
+| `uncertainty.js` | Task 2: uncertainty of the marginal factor (Newey–West standard error, block-bootstrap 95 % interval) |
 
 ## Known limitations
 

@@ -165,7 +165,16 @@ function draw(hours){
     dRes.push([S[i].res-S[i-1].res, S[i].e-S[i-1].e]);
   }
   const rT=regress(dTot), rR=regress(dRes);
-  const aef=S.reduce((s,h)=>s+h.int,0)/S.length;
+  // AEF wie in Task 1 (emissionFactors.js, zwei Durchgaenge): Pumpspeicher-Entladung wird mit der
+  // Netzintensitaet des Zeitraums OHNE Speicher / 0,80 bewertet. So zeigen beide Seiten denselben AEF.
+  // Die MEF-Regression unten nutzt weiterhin den festen Faktor F['Pumpspeicher'].
+  let eNo=0, gNo=0;
+  for(const h of hours) for(const [k,v] of Object.entries(h.values)){
+    if(k==='Pumpspeicher') continue;
+    eNo+=(F[k]??0)*v/1000; gNo+=v;
+  }
+  const fStore = gNo>0 ? eNo*1000/gNo/0.80 : 0;
+  const aef=S.reduce((s,h)=>s+(h.e+(fStore-F['Pumpspeicher'])*(h.v['Pumpspeicher']??0)/1000)*1000/h.tot,0)/S.length;
   const mef=rR.slope*1000;
 
   document.getElementById('vAef').firstChild.nodeValue=Math.round(aef);
