@@ -1,0 +1,40 @@
+{
+ "UTC": {
+  "hours_overlap": 167,
+  "MOER_mean": 675.6,
+  "MOER_median": 747.6,
+  "MOER_zero_hours": 7,
+  "MOER_mean_nonzero": 705.2,
+  "corr_MOER_AEF": 0.576,
+  "corr_MOER_residual": 0.52,
+  "corr_MOER_methodB_factor": 0.061,
+  "methodB_mean": 713.8,
+  "MOER_low_res": 581.0,
+  "MOER_high_res": 768.5
+ },
+ "CEST_old_assumption": {
+  "hours_overlap": 168,
+  "MOER_mean": 676.4,
+  "MOER_median": 748.2,
+  "MOER_zero_hours": 7,
+  "MOER_mean_nonzero": 705.8,
+  "corr_MOER_AEF": 0.538,
+  "corr_MOER_residual": 0.528,
+  "corr_MOER_methodB_factor": 0.021,
+  "methodB_mean": 713.8,
+  "MOER_low_res": 582.8,
+  "MOER_high_res": 773.2
+ },
+ "ours": {
+  "MEF_operational": [
+   545.045,
+   0.933
+  ],
+  "MEF_fossil_only_operational": [
+   742.095,
+   0.965
+  ],
+  "AEF_operational_mean": 269.4,
+  "storage_factor_op": 315.2
+ }
+}

@@ -10,9 +10,9 @@ Bidding zone DE-LU, data from the ENTSO-E Transparency Platform.
 | Task | Question | Result |
 |---|---|---|
 | 1 · Attributional | How much CO₂eq does one kWh carry on average, hour by hour, over its life cycle? Rebuild of the Green Grid Compass (GGC) method, imports excluded. | Correlation 0.9938 with GGC (10–17 June 2024, 168 hours); mean 308.8 vs 308.3 g/kWh |
-| 2 · Consequential | If consumption rises by one kWh, which plant responds and what does it emit? | Marginal factor 562 g/kWh (summer week), regression on residual load, R² 0.936 |
+| 2 · Consequential | If consumption rises by one kWh, which plant responds and what does it emit? | Marginal factor 562 g/kWh (summer week, R² 0.936) and 555 g/kWh (2024), regression on residual load |
 
-The two answers differ because wind and solar cannot respond to extra demand. The marginal kWh is fossil, so it is about 1.4–1.8 times the average.
+The two answers differ because wind and solar cannot respond to extra demand. Over 2024 the marginal kWh is about 1.4 times the average (1.8 in the summer benchmark week).
 
 ## Method in short
 
@@ -46,11 +46,13 @@ Other scripts (run with `node <file>`):
 | `curtailment.js` | Extension: marginal factor by day-ahead price level (price proxy for surplus hours) |
 | `uncertainty.js` | Task 2: uncertainty of the marginal factor (Newey–West standard error, block-bootstrap 95 % interval) |
 
+Scripts that reproduce every number and figure of the final report, including the full-year analysis and the WattTime comparison, are in [`analysis/`](analysis/README.md).
+
 ## Known limitations
 
-- No Eurostat scaling (about 13 g/kWh in the benchmark week) and no CHP allocation.
+- No Eurostat scaling (about 12 g/kWh, 4 %, in the benchmark week) and no CHP allocation.
 - Biomass: Scope 2 is set to 5 g/kWh, derived from GGC's operational export (emissions ÷ generation, stable over the benchmark week); this is not a published GGC factor. Life cycle is 53 g/kWh, implied by GGC's life-cycle export. An earlier value of 95 was a UBA figure (biomass provision plus non-CO₂ gases) and was wrongly used as Scope 2.
-- Task 2 is not validated against an external source. Marginal-supplier shares are inferred from generation changes, without plant capacity or regional data.
+- Task 2 is a first approximation. Its level depends on how pumped storage is valued (400 to about 730 g/kWh for 2024). External comparisons with the `elmada` model (2019) and with WattTime (full year 2024: 727 g/kWh against 709 fossil-only and 530 system response, operational) agree with the fossil part of the regression only, and WattTime shows the opposite pattern over residual load. Marginal-supplier shares are inferred from generation changes, without plant capacity or regional data.
 - Curtailment is approximated by negative day-ahead prices. Published curtailment data (SMARD, Bundesnetzagentur) is monthly or quarterly and covers congestion redispatch, so we found no hourly series.
 - Dashboard: the most recent hours can be incomplete because ENTSO-E publishes carriers with a delay; hours with very low total generation are hidden.
 - ENTSO-E data is retrieved with a 3-hour delay; the most recent hours may be incomplete.
@@ -60,5 +62,7 @@ Other scripts (run with `node <file>`):
 - Hawkes (2010), Estimating marginal CO₂ emissions rates for national electricity systems, Energy Policy 38(10)
 - Ekvall & Weidema (2004), System boundaries and input data in consequential LCA
 - Fleschutz et al. (2021), Applied Energy 295, 117040
+- Braeuer et al. (2020), Journal of Cleaner Production 266, 121588
+- WattTime marginal operating emission rate, methodology: https://watttime.org/data-science/methodology-validation/
 - IPCC AR5 WGIII Annex III (Schlömer et al. 2014)
 - EU JRC emission factors (Covenant of Mayors); Green Grid Compass methodology report

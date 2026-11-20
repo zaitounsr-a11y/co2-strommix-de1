@@ -8,3 +8,9 @@ npm-debug.log*
 
 .DS_Store
 .vscode/
+
+# WattTime data: provided by the chair, must not be redistributed (see analysis/README.md)
+analysis/watttime/data/*
+!analysis/watttime/data/README.md
+*WattTime*.xlsx
+*_co2_moer_*.csv

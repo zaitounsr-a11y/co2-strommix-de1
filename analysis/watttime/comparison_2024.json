@@ -1,0 +1,167 @@
+{
+ "coverage": {
+  "wt_5min_values": 105685,
+  "wt_hours": 8808,
+  "wt_hours_incomplete": 1,
+  "entsoe_hours": 8784,
+  "overlap_hours": 8784
+ },
+ "storage_factor_operational_year": 409.1,
+ "year": {
+  "MOER_mean": 727.2,
+  "MOER_median": 767.2,
+  "MOER_share_zero_hours_pct": 1.3,
+  "MOER_mean_nonzero": 736.5,
+  "MOER_p10_p90": [
+   601,
+   809
+  ],
+  "AEF_operational_mean": 344.9,
+  "MEF_operational": 530,
+  "MEF_fossil_only_operational": 709,
+  "MEF_lifecycle": 555,
+  "pairs": 8783,
+  "corr_MOER_AEF": 0.428,
+  "corr_MOER_residual": 0.32
+ },
+ "thirds": {
+  "bounds_GW": [
+   12.1,
+   21.8,
+   29.8,
+   60.0
+  ],
+  "low": {
+   "MOER_mean": 649,
+   "MOER_share_zero_pct": 3.7,
+   "MEF_operational": 626,
+   "MEF_fossil_only_operational": 824,
+   "pairs": 2927
+  },
+  "middle": {
+   "MOER_mean": 776,
+   "MOER_share_zero_pct": 0.0,
+   "MEF_operational": 547,
+   "MEF_fossil_only_operational": 714,
+   "pairs": 2928
+  },
+  "high": {
+   "MOER_mean": 760,
+   "MOER_share_zero_pct": 0.0,
+   "MEF_operational": 482,
+   "MEF_fossil_only_operational": 647,
+   "pairs": 2928
+  }
+ },
+ "monthly": {
+  "2024-01": {
+   "MOER_mean": 752,
+   "MOER_zero_pct": 0.3,
+   "MEF_operational": 568,
+   "MEF_fossil_only_operational": 748,
+   "AEF_operational": 348
+  },
+  "2024-02": {
+   "MOER_mean": 753,
+   "MOER_zero_pct": 0.3,
+   "MEF_operational": 588,
+   "MEF_fossil_only_operational": 777,
+   "AEF_operational": 333
+  },
+  "2024-03": {
+   "MOER_mean": 741,
+   "MOER_zero_pct": 1.2,
+   "MEF_operational": 570,
+   "MEF_fossil_only_operational": 754,
+   "AEF_operational": 351
+  },
+  "2024-04": {
+   "MOER_mean": 705,
+   "MOER_zero_pct": 2.8,
+   "MEF_operational": 528,
+   "MEF_fossil_only_operational": 679,
+   "AEF_operational": 284
+  },
+  "2024-05": {
+   "MOER_mean": 712,
+   "MOER_zero_pct": 2.3,
+   "MEF_operational": 500,
+   "MEF_fossil_only_operational": 662,
+   "AEF_operational": 306
+  },
+  "2024-06": {
+   "MOER_mean": 697,
+   "MOER_zero_pct": 2.4,
+   "MEF_operational": 554,
+   "MEF_fossil_only_operational": 742,
+   "AEF_operational": 318
+  },
+  "2024-07": {
+   "MOER_mean": 688,
+   "MOER_zero_pct": 2.7,
+   "MEF_operational": 540,
+   "MEF_fossil_only_operational": 729,
+   "AEF_operational": 327
+  },
+  "2024-08": {
+   "MOER_mean": 717,
+   "MOER_zero_pct": 1.3,
+   "MEF_operational": 515,
+   "MEF_fossil_only_operational": 694,
+   "AEF_operational": 348
+  },
+  "2024-09": {
+   "MOER_mean": 715,
+   "MOER_zero_pct": 1.1,
+   "MEF_operational": 511,
+   "MEF_fossil_only_operational": 725,
+   "AEF_operational": 329
+  },
+  "2024-10": {
+   "MOER_mean": 755,
+   "MOER_zero_pct": 0.1,
+   "MEF_operational": 513,
+   "MEF_fossil_only_operational": 693,
+   "AEF_operational": 397
+  },
+  "2024-11": {
+   "MOER_mean": 752,
+   "MOER_zero_pct": 0.1,
+   "MEF_operational": 466,
+   "MEF_fossil_only_operational": 593,
+   "AEF_operational": 426
+  },
+  "2024-12": {
+   "MOER_mean": 755,
+   "MOER_zero_pct": 0.1,
+   "MEF_operational": 485,
+   "MEF_fossil_only_operational": 657,
+   "AEF_operational": 368
+  }
+ },
+ "monthly_corr": {
+  "MOER_vs_MEF_operational": -0.05,
+  "MOER_vs_MEF_fossil_only": -0.12,
+  "MOER_vs_AEF": 0.7
+ },
+ "hour_of_day": {
+  "MOER_min_hour": 13,
+  "MOER_min": 584,
+  "MOER_max_hour": 22,
+  "MOER_max": 789,
+  "AEF_min_hour": 12,
+  "AEF_max_hour": 20,
+  "corr_profiles": 0.95
+ },
+ "june_week_raw": {
+  "MOER_mean": 676.4,
+  "MOER_median": 748.2,
+  "corr_MOER_AEF": 0.573,
+  "corr_MOER_residual": 0.511,
+  "MOER_thirds": [
+   492,
+   774,
+   763
+  ]
+ }
+}
